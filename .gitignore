@@ -1,0 +1,12 @@
+# Secrets
+.env.local
+.env
+
+# Go
+omnifocal-server
+
+# Kilroy
+.ai/
+
+# OS
+.DS_Store
