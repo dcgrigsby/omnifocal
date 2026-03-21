@@ -1,11 +1,11 @@
 digraph omnifocal {
     graph [
-        goal="Build OmniFocal: Go proxy server + NanoClaw skill for read-only OmniFocus access"
-        rankdir=TB
-        retry_target="debate_consolidate"
-        loop_restart_signature_limit=5
-        loop_restart_persist_keys="last_failing_acs"
-        provenance_version="1"
+        goal="Build OmniFocal: Go proxy server + NanoClaw skill for read-only OmniFocus access",
+        rankdir=TB,
+        retry_target="debate_consolidate",
+        loop_restart_signature_limit=5,
+        loop_restart_persist_keys="last_failing_acs",
+        provenance_version="1",
         model_stylesheet="
             * { llm_model: gpt-5.3-codex; llm_provider: openai; }
             .verify { llm_model: claude-opus-4.6; llm_provider: anthropic; }
