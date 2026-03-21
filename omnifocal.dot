@@ -311,6 +311,7 @@ If either is missing or trivial:
         implement_server [
             shape=box,
             class="hard",
+            auto_status=true,
             max_agent_turns=300,
             max_retries=2,
             prompt="Implement the OmniFocal Go HTTP server and supporting artifacts.
@@ -505,6 +506,7 @@ On failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"
         implement_skill [
             shape=box,
             class="hard",
+            auto_status=true,
             max_agent_turns=300,
             max_retries=2,
             prompt="Implement the OmniFocal NanoClaw container skill for read-only OmniFocus access.
