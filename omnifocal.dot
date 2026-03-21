@@ -2,7 +2,7 @@ digraph omnifocal {
     graph [
         goal="Build OmniFocal: Go proxy server + NanoClaw skill for read-only OmniFocus access",
         rankdir=TB,
-        retry_target="debate_consolidate",
+        retry_target="plan_work",
         loop_restart_signature_limit=5,
         loop_restart_persist_keys="last_failing_acs",
         provenance_version="1",
@@ -173,39 +173,15 @@ Write to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH
     }
 
     // =========================================================================
-    // Planning Fanout
+    // Planning
     // =========================================================================
     subgraph cluster_planning {
-        label="Planning Fanout"
-        node [shape=box]
+        label="Planning"
 
-        plan_fanout [shape=component, label="Plan Fan-Out"]
-
-        plan_a [class="branch-a", prompt="Create an implementation plan for OmniFocal.
-
-Goal: $goal
-
-Read:
-- .ai/runs/$KILROY_RUN_ID/spec.md
-- .ai/runs/$KILROY_RUN_ID/definition_of_done.md
-- If .ai/runs/$KILROY_RUN_ID/postmortem_latest.md exists, incorporate its lessons
-
-Create a plan covering all deliverables and acceptance criteria from the DoD:
-1. Go HTTP server (cmd/omnifocal-server/) — POST /eval osascript bridge, GET /health, error handling, empty body 400
-2. launchd plist (launchd/com.omnifocal.server.plist) — valid XML, ProgramArguments, KeepAlive
-3. NanoClaw skill (skills/omnifocal/SKILL.md) — YAML frontmatter, OmniFocus API reference, query patterns, read-only enforcement, server communication
-4. Validation scripts (scripts/validate-*.sh) — fmt, build, test-server, test-skill
-5. Integration test evidence under .ai/runs/$KILROY_RUN_ID/test-evidence/latest/
-
-Ground the plan in Go, osascript, macOS, NanoClaw container skill format. Include dependency order.
-
-Write to .ai/runs/$KILROY_RUN_ID/plan_a.md.
-
-Write to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):
-On success: {\"status\":\"success\"}
-On failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"plan_proposal\"}"]
-
-        plan_b [class="branch-b", prompt="Create an implementation plan for OmniFocal.
+        plan_work [
+            shape=box,
+            auto_status=true,
+            prompt="Create an implementation plan for OmniFocal.
 
 Goal: $goal
 
@@ -219,60 +195,14 @@ Create a plan covering all deliverables and acceptance criteria from the DoD:
 2. launchd plist (launchd/com.omnifocal.server.plist) — valid XML, ProgramArguments, KeepAlive
 3. NanoClaw skill (skills/omnifocal/SKILL.md) — YAML frontmatter, OmniFocus API reference, query patterns, read-only enforcement, server communication
 4. Validation scripts (scripts/validate-*.sh) — fmt, build, test-server, test-skill
-5. Integration test evidence under .ai/runs/$KILROY_RUN_ID/test-evidence/latest/
+5. Integration test evidence: scripts/validate-test-server.sh MUST produce .ai/runs/$KILROY_RUN_ID/test-evidence/latest/manifest.json mapping each IT-* scenario to status and artifact paths. The manifest is written BY the test script, not as a separate step.
 
 Ground the plan in Go, osascript, macOS, NanoClaw container skill format. Include dependency order.
-
-Write to .ai/runs/$KILROY_RUN_ID/plan_b.md.
-
-Write to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):
-On success: {\"status\":\"success\"}
-On failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"plan_proposal\"}"]
-
-        plan_c [class="branch-c", prompt="Create an implementation plan for OmniFocal.
-
-Goal: $goal
-
-Read:
-- .ai/runs/$KILROY_RUN_ID/spec.md
-- .ai/runs/$KILROY_RUN_ID/definition_of_done.md
-- If .ai/runs/$KILROY_RUN_ID/postmortem_latest.md exists, incorporate its lessons
-
-Create a plan covering all deliverables and acceptance criteria from the DoD:
-1. Go HTTP server (cmd/omnifocal-server/) — POST /eval osascript bridge, GET /health, error handling, empty body 400
-2. launchd plist (launchd/com.omnifocal.server.plist) — valid XML, ProgramArguments, KeepAlive
-3. NanoClaw skill (skills/omnifocal/SKILL.md) — YAML frontmatter, OmniFocus API reference, query patterns, read-only enforcement, server communication
-4. Validation scripts (scripts/validate-*.sh) — fmt, build, test-server, test-skill
-5. Integration test evidence under .ai/runs/$KILROY_RUN_ID/test-evidence/latest/
-
-Ground the plan in Go, osascript, macOS, NanoClaw container skill format. Include dependency order.
-
-Write to .ai/runs/$KILROY_RUN_ID/plan_c.md.
-
-Write to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):
-On success: {\"status\":\"success\"}
-On failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"plan_proposal\"}"]
-
-        debate_consolidate [auto_status=true, prompt="Synthesize the three implementation plans into a best-of-breed final plan.
-
-Goal: $goal
-
-Read branch outputs. Check for .ai/parallel_results.json — if present, read each branch worktree's plan via the worktree_dir paths. If parallel_results.json is missing, read from the current worktree:
-- .ai/runs/$KILROY_RUN_ID/plan_a.md
-- .ai/runs/$KILROY_RUN_ID/plan_b.md
-- .ai/runs/$KILROY_RUN_ID/plan_c.md
-
-Also read:
-- .ai/runs/$KILROY_RUN_ID/spec.md
-- .ai/runs/$KILROY_RUN_ID/definition_of_done.md
-- If .ai/runs/$KILROY_RUN_ID/postmortem_latest.md exists, verify the plan addresses every identified issue
-
-Resolve conflicts, ensure dependency order, produce the final consolidated plan.
 
 Write to .ai/runs/$KILROY_RUN_ID/plan_final.md.
 
 Write to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH) ONLY on failure:
-{\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"plan_consolidation\"}"]
+{\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"plan_proposal\"}"]
     }
 
     // =========================================================================
@@ -352,8 +282,8 @@ Deliverables:
    - IT-4: GET /health, verify 200
    - IT-5: plutil -lint the plist, parse ProgramArguments and KeepAlive
    Writes evidence to .ai/runs/$KILROY_RUN_ID/test-evidence/latest/IT-{1..5}/
-   Writes .ai/runs/$KILROY_RUN_ID/test-evidence/latest/manifest.json mapping each IT-* to status and artifact paths
-   Must emit best-effort evidence even on failure
+   CRITICAL: writes .ai/runs/$KILROY_RUN_ID/test-evidence/latest/manifest.json mapping each IT-* to status and artifact paths — this manifest is the ONLY proof that tests ran; without it, verification fails
+   Must emit best-effort evidence and a manifest entry even on failure (missing evidence must be explicit in manifest)
    Each script must start with: #!/bin/sh, set -e, trap for KILROY_VALIDATE_FAILURE
 
 Implementation approach:
@@ -448,14 +378,6 @@ Write to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH
             tool_command="sh scripts/validate-test-server.sh || { echo 'KILROY_VALIDATE_FAILURE: validate-test-server.sh missing or failed — postmortem must write scripts/validate-test-server.sh'; exit 1; }"
         ]
         check_test_server [shape=diamond, label="Server Tests OK?"]
-
-        verify_artifacts_server [
-            shape=parallelogram,
-            max_retries=0,
-            failure_signature="missing_test_evidence",
-            tool_command="sh -c 'MANIFEST=\".ai/runs/$KILROY_RUN_ID/test-evidence/latest/manifest.json\"; if [ ! -f \"$MANIFEST\" ]; then echo \"KILROY_VALIDATE_FAILURE: manifest.json missing — implement_server must write test evidence\"; exit 1; fi; for id in IT-1 IT-2 IT-3 IT-4 IT-5; do if ! grep -q \"$id\" \"$MANIFEST\"; then echo \"KILROY_VALIDATE_FAILURE: $id missing from manifest\"; exit 1; fi; done; echo \"All server test evidence present\"'"
-        ]
-        check_artifacts_server [shape=diamond, label="Server Artifacts OK?"]
 
         verify_fidelity_server [
             shape=box,
@@ -913,7 +835,7 @@ or {\"status\":\"needs_toolchain\",\"failure_reason\":\"...\",\"context_updates\
 
     // DoD routing
     check_dod -> dod_fanout [condition="outcome=needs_dod"]
-    check_dod -> plan_fanout [condition="outcome=has_dod"]
+    check_dod -> plan_work [condition="outcome=has_dod"]
     check_dod -> dod_fanout
 
     // DoD fan-out
@@ -923,18 +845,10 @@ or {\"status\":\"needs_toolchain\",\"failure_reason\":\"...\",\"context_updates\
     dod_a -> consolidate_dod
     dod_b -> consolidate_dod
     dod_c -> consolidate_dod
-    consolidate_dod -> plan_fanout
-
-    // Planning fan-out
-    plan_fanout -> plan_a
-    plan_fanout -> plan_b
-    plan_fanout -> plan_c
-    plan_a -> debate_consolidate
-    plan_b -> debate_consolidate
-    plan_c -> debate_consolidate
+    consolidate_dod -> plan_work
 
     // State detection after planning
-    debate_consolidate -> detect_state
+    plan_work -> detect_state
     detect_state -> check_state
 
     // State routing
@@ -965,16 +879,10 @@ or {\"status\":\"needs_toolchain\",\"failure_reason\":\"...\",\"context_updates\
     check_build -> postmortem
 
     verify_test_server -> check_test_server
-    check_test_server -> verify_artifacts_server [condition="outcome=success"]
+    check_test_server -> verify_fidelity_server [condition="outcome=success"]
     check_test_server -> implement_server [condition="outcome=fail && context.failure_class=transient_infra", loop_restart=true]
     check_test_server -> postmortem [condition="outcome=fail && context.failure_class!=transient_infra"]
     check_test_server -> postmortem
-
-    verify_artifacts_server -> check_artifacts_server
-    check_artifacts_server -> verify_fidelity_server [condition="outcome=success"]
-    check_artifacts_server -> implement_server [condition="outcome=fail && context.failure_class=transient_infra", loop_restart=true]
-    check_artifacts_server -> postmortem [condition="outcome=fail && context.failure_class!=transient_infra"]
-    check_artifacts_server -> postmortem
 
     verify_fidelity_server -> check_fidelity_server
     check_fidelity_server -> implement_skill [condition="outcome=success"]
@@ -1033,7 +941,7 @@ or {\"status\":\"needs_toolchain\",\"failure_reason\":\"...\",\"context_updates\
     // Skill repair — skill ACs failing, server is fine
     postmortem -> repair_skill [condition="outcome=skill_repair"]
     // Replan — approach is inadequate or zero progress
-    postmortem -> plan_fanout [condition="outcome=needs_replan"]
+    postmortem -> plan_work [condition="outcome=needs_replan"]
     // Toolchain issue — re-check environment
     postmortem -> check_toolchain [condition="outcome=needs_toolchain"]
     // Unconditional fallback (must be last)
