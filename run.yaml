@@ -1,0 +1,81 @@
+version: 1
+
+graph: omnifocal.dot
+task: "Build OmniFocal: Go proxy server for OmniFocus JS evaluation + NanoClaw skill for read-only OmniFocus queries"
+
+repo:
+  path: /Users/dan/omnifocal
+
+cxdb:
+  binary_addr: 127.0.0.1:9009
+  http_base_url: http://127.0.0.1:9010
+  autostart:
+    enabled: true
+    command: ["/Users/dan/kilroy/scripts/start-cxdb.sh"]
+    wait_timeout_ms: 20000
+    poll_interval_ms: 250
+    ui:
+      enabled: true
+      command: ["/Users/dan/kilroy/scripts/start-cxdb-ui.sh"]
+      url: "http://127.0.0.1:9020"
+
+llm:
+  cli_profile: real
+  providers:
+    openai:
+      backend: api
+    anthropic:
+      backend: api
+
+modeldb:
+  openrouter_model_info_path: /Users/dan/kilroy/internal/attractor/modeldb/pinned/openrouter_models.json
+  openrouter_model_info_update_policy: on_run_start
+  openrouter_model_info_url: https://openrouter.ai/api/v1/models
+  openrouter_model_info_fetch_timeout_ms: 5000
+
+git:
+  require_clean: false
+  run_branch_prefix: attractor/run
+  commit_per_node: true
+
+inputs:
+  materialize:
+    enabled: true
+    imports:
+      - pattern: "docs/**/*.md"
+        required: false
+    fan_in:
+      promote_run_scoped: []
+    follow_references: true
+    infer_with_llm: false
+
+artifact_policy:
+  profiles: ["go", "node"]
+  env:
+    managed_roots:
+      tool_cache_root: "managed"
+    overrides:
+      go:
+        GOPATH: "{managed_roots.tool_cache_root}/go-path"
+        GOMODCACHE: "{managed_roots.tool_cache_root}/go-path/pkg/mod"
+      node: {}
+      generic: {}
+  checkpoint:
+    exclude_globs:
+      - "**/node_modules/**"
+      - "**/.go-path/**"
+
+runtime_policy:
+  stage_timeout_ms: 0
+  stall_timeout_ms: 600000
+  stall_check_interval_ms: 5000
+  max_llm_retries: 6
+
+preflight:
+  prompt_probes:
+    enabled: true
+    transports: [complete, stream]
+    timeout_ms: 15000
+    retries: 1
+    base_delay_ms: 500
+    max_delay_ms: 5000
