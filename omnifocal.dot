@@ -180,6 +180,7 @@ Write to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH
 
         plan_work [
             shape=box,
+            class="review",
             auto_status=true,
             prompt="Create an implementation plan for OmniFocal.
 
@@ -275,16 +276,25 @@ Deliverables:
 
 4. scripts/validate-fmt.sh — runs gofmt -l and fails if any files need formatting
 5. scripts/validate-build.sh — runs go build ./cmd/omnifocal-server and checks binary exists
-6. scripts/validate-test-server.sh — starts server, runs IT-1 through IT-5:
-   - IT-1: build binary, start it, verify listening on port 7890
-   - IT-2: POST /eval with valid OmniFocus JS, verify 200 + valid JSON response + text/plain content-type
-   - IT-3: POST /eval with invalid JS, verify 500; POST /eval with empty body, verify 400
-   - IT-4: GET /health, verify 200
-   - IT-5: plutil -lint the plist, parse ProgramArguments and KeepAlive
-   Writes evidence to .ai/runs/$KILROY_RUN_ID/test-evidence/latest/IT-{1..5}/
-   CRITICAL: writes .ai/runs/$KILROY_RUN_ID/test-evidence/latest/manifest.json mapping each IT-* to status and artifact paths — this manifest is the ONLY proof that tests ran; without it, verification fails
-   Must emit best-effort evidence and a manifest entry even on failure (missing evidence must be explicit in manifest)
+6. scripts/validate-test-server.sh — THIS IS NOT go test. This is an integration test script that:
+   a. Builds the binary: go build -o omnifocal-server ./cmd/omnifocal-server
+   b. Starts the binary in background: ./omnifocal-server &   SERVER_PID=$!
+   c. Waits for it to listen: retry curl http://127.0.0.1:7890/health up to 10 times with 1s sleep
+   d. Runs each IT scenario using curl:
+      - IT-1: verify server is listening (already confirmed by step c)
+      - IT-2: curl -s -o response.txt -w '%{http_code}' -X POST -d 'JSON.stringify(inbox.length)' http://127.0.0.1:7890/eval — verify HTTP 200, verify response is valid JSON
+      - IT-3: curl -X POST -d 'INVALID{{{JS' http://127.0.0.1:7890/eval — verify HTTP 500; curl -X POST -d '' http://127.0.0.1:7890/eval — verify HTTP 400
+      - IT-4: curl http://127.0.0.1:7890/health — verify HTTP 200
+      - IT-5: plutil -lint launchd/com.omnifocal.server.plist — verify exit 0
+   e. Saves curl output to .ai/runs/$KILROY_RUN_ID/test-evidence/latest/IT-{1..5}/response.txt
+   f. Kills server: kill $SERVER_PID
+   g. Writes .ai/runs/$KILROY_RUN_ID/test-evidence/latest/manifest.json with each IT-* status
+   h. SELF-VERIFICATION at end of script (this is mandatory — the script MUST fail if tests did not actually run):
+      [ -f \"$EVIDENCE_DIR/manifest.json\" ] || { echo 'KILROY_VALIDATE_FAILURE: manifest not produced'; exit 1; }
+      for id in IT-1 IT-2 IT-3 IT-4 IT-5; do grep -q \"$id\" \"$EVIDENCE_DIR/manifest.json\" || { echo \"KILROY_VALIDATE_FAILURE: $id missing from manifest\"; exit 1; }; done
+      [ -s \"$EVIDENCE_DIR/IT-2/response.txt\" ] || { echo 'KILROY_VALIDATE_FAILURE: IT-2 response empty — server was never actually called'; exit 1; }
    Each script must start with: #!/bin/sh, set -e, trap for KILROY_VALIDATE_FAILURE
+   DO NOT use go test. This script must use curl to hit the running server.
 
 Implementation approach:
 - Use net/http from stdlib only
@@ -301,54 +311,6 @@ Write to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH
 {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"server_implementation\"}"
         ]
 
-        implement_launchd [
-            shape=box,
-            auto_status=true,
-            prompt="Verify and finalize the launchd plist and validation scripts created by implement_server.
-
-Goal: $goal
-
-Read:
-- launchd/com.omnifocal.server.plist — verify valid XML, ProgramArguments, KeepAlive=true, Label=com.omnifocal.server
-- scripts/validate-fmt.sh — verify it runs gofmt -l and fails on unformatted files
-- scripts/validate-build.sh — verify it runs go build and checks binary
-- scripts/validate-test-server.sh — verify it covers IT-1 through IT-5 with evidence output
-
-If any are missing or incorrect, create/fix them. Each script must:
-- Start with #!/bin/sh and set -e
-- Include trap for KILROY_VALIDATE_FAILURE as first executable line
-- End with trap - EXIT on success
-
-Commit any changes.
-
-Write to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH) ONLY on failure:
-{\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"launchd_validation\"}"
-        ]
-
-        merge_server [
-            shape=box,
-            auto_status=true,
-            prompt="Merge and validate all server implementation branches.
-
-Goal: $goal
-
-Check for .ai/parallel_results.json — if present, inspect branch worktrees via head_sha and worktree_dir. Use git diff, git log, and file reads to understand what each branch produced. Cherry-pick or merge commits as appropriate.
-
-If parallel_results.json is missing, verify the current worktree has all required server artifacts:
-- cmd/omnifocal-server/main.go (Go server source)
-- go.mod (module declaration)
-- launchd/com.omnifocal.server.plist (launchd plist)
-- scripts/validate-fmt.sh
-- scripts/validate-build.sh
-- scripts/validate-test-server.sh
-
-Verify consistency: the server source matches what the test script expects, the plist references the correct binary path, scripts are executable.
-
-Commit the merged result.
-
-Write to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH) ONLY on failure:
-{\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"server_merge\"}"
-        ]
     }
 
     // =========================================================================
@@ -408,7 +370,12 @@ AC-4.1: launchd/com.omnifocal.server.plist — verify valid XML per plutil -lint
 AC-4.2: launchd/com.omnifocal.server.plist — verify ProgramArguments contains correct binary path
 AC-4.3: launchd/com.omnifocal.server.plist — verify KeepAlive is set to true
 
-Cross-reference test evidence in manifest.json to confirm IT-1 through IT-5 all passed.
+CRITICAL — DO NOT TRUST TOOL NODE RESULTS. You must verify independently:
+
+1. Read .ai/runs/$KILROY_RUN_ID/test-evidence/latest/manifest.json — if it does not exist or is empty, FAIL immediately. The test script was supposed to produce it.
+2. For each IT-* in the manifest, read at least one evidence artifact (e.g. IT-2/response.txt) and verify it contains REAL data — not empty, not placeholder, not 'ok'. IT-2 should contain actual OmniFocus task data from a running OmniFocus instance.
+3. If manifest exists but evidence files are empty or missing, FAIL. This means the test script claimed success without actually hitting the server.
+4. Verify the Go source code actually calls osascript (grep for exec.Command and osascript in main.go).
 
 Write results to .ai/runs/$KILROY_RUN_ID/verify_fidelity_server.md.
 
@@ -556,6 +523,10 @@ AC-7.1: skills/omnifocal/SKILL.md — verify query composition patterns for: inb
 AC-7.2: skills/omnifocal/SKILL.md — verify JSON.stringify instruction in examples
 AC-7.3: skills/omnifocal/SKILL.md — verify POST /eval instruction present
 AC-8.1: .ai/runs/$KILROY_RUN_ID/test-evidence/latest/IT-7/ — verify Claude Code CLI e2e evidence shows valid OmniFocus data returned
+
+CRITICAL — DO NOT TRUST TOOL NODE RESULTS:
+1. Read IT-6 and IT-7 evidence artifacts. If they are empty, missing, or contain only 'pass' with no supporting data, FAIL.
+2. For IT-7, the evidence must show that Claude Code was actually invoked and produced output containing OmniFocus data. If the script just checked structure without running Claude Code, that is a FAIL for AC-8.1.
 
 Cross-reference test evidence in manifest.json for IT-6 and IT-7 status.
 
@@ -859,9 +830,7 @@ or {\"status\":\"needs_toolchain\",\"failure_reason\":\"...\",\"context_updates\
     // =========================================================================
     // Flow: Server Implementation
     // =========================================================================
-    implement_server -> implement_launchd
-    implement_launchd -> merge_server
-    merge_server -> verify_fmt
+    implement_server -> verify_fmt
 
     // =========================================================================
     // Flow: Server Verification
