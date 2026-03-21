@@ -1,0 +1,392 @@
+digraph omnifocal {
+    graph [
+        goal="Build the OmniFocal Attractor pipeline: (1) omnifocal-server — a Go HTTP server with POST /eval (osascript bridge to OmniFocus) and GET /health, plus a launchd plist for auto-start; (2) omnifocal-skill — a NanoClaw container skill (skills/omnifocal/SKILL.md) that teaches agents to compose read-only OmniFocus queries and call the server. Acceptance criteria cover server build/start (AC-1), /eval happy path and error handling (AC-2), /health (AC-3), launchd plist validity (AC-4), skill structure (AC-5), read-only enforcement (AC-6), query composition patterns (AC-7), and end-to-end agent round trip via Claude Code CLI (AC-8). Integration tests IT-1 through IT-7 validate all ACs with concrete curl commands and evidence artifacts.",
+        rankdir=TB,
+        retry_target="plan_work",
+        loop_restart_signature_limit=5,
+        loop_restart_persist_keys="last_failing_acs",
+        model_stylesheet="
+            * { llm_model: gpt-5.3-codex; llm_provider: openai; }
+            .verify { llm_model: claude-opus-4.6; llm_provider: anthropic; }
+            .review { llm_model: gpt-5.4; llm_provider: openai; }
+            .hard { llm_model: gpt-5.3-codex; llm_provider: openai; }
+            .branch-a { llm_model: gpt-5.3-codex; llm_provider: openai; }
+            .branch-b { llm_model: claude-opus-4.6; llm_provider: anthropic; }
+            .branch-c { llm_model: gpt-5.4; llm_provider: openai; }
+        "
+    ]
+
+    exit [shape=Msquare, label="Exit"]
+
+    // =========================================================================
+    // Bootstrap
+    // =========================================================================
+
+    subgraph cluster_bootstrap {
+        label="Bootstrap"
+
+        start [shape=Mdiamond, label="Start"]
+
+        check_toolchain [
+            shape=parallelogram,
+            max_retries=0,
+            tool_command="command -v go >/dev/null 2>&1 && command -v osascript >/dev/null 2>&1 && command -v plutil >/dev/null 2>&1 && command -v curl >/dev/null 2>&1 && command -v claude >/dev/null 2>&1 && echo 'All tools present: go, osascript, plutil, curl, claude' || { echo 'MISSING TOOLS: require go, osascript, plutil, curl, claude'; exit 1; }"
+        ]
+
+        expand_spec [
+            shape=box,
+            auto_status=true,
+            prompt="You are a specification expander for the OmniFocal project.\n\nGoal: $goal\n\nRead docs/plans/2026-03-21-omnifocal-design.md and docs/plans/2026-03-21-omnifocal-dod.md.\n\nIf .ai/runs/$KILROY_RUN_ID/spec.md already exists and is adequate (covers scope, constraints, assumptions, acceptance criteria, verification approach, non-goals), write nothing new — just confirm reuse.\n\nOtherwise, create .ai/runs/$KILROY_RUN_ID/spec.md that includes:\n- Full scope (server + skill, two components)\n- Constraints (read-only, Go, osascript bridge, port 7890, launchd)\n- Assumptions (macOS, OmniFocus installed, Go toolchain, Claude Code CLI)\n- Acceptance criteria (AC-1 through AC-8 from the DoD)\n- Integration test scenarios (IT-1 through IT-7)\n- Verification approach (curl-based server tests, grep-based skill tests, Claude Code CLI for e2e)\n- Non-goals (write ops, auth, TLS, multi-database)\n\nInclude the goal verbatim in a delimited block:\n---BEGIN GOAL---\n$goal\n---END GOAL---\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH) ONLY on failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\"}"
+        ]
+
+        check_dod [
+            shape=box,
+            label="DoD exists?",
+            prompt="Check whether docs/plans/2026-03-21-omnifocal-dod.md exists and is adequate.\n\nAdequacy criteria:\n- Covers scope, deliverables, acceptance criteria, verification approach\n- Has AC-1 through AC-8 with specific verifiable criteria\n- Has IT-1 through IT-7 integration test scenarios\n- Has evidence contract and self-verification requirements\n\nThe file exists and is comprehensive. Copy it to .ai/runs/$KILROY_RUN_ID/definition_of_done.md.\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):\n- If adequate: {\"status\":\"has_dod\"}\n- If missing or inadequate: {\"status\":\"needs_dod\"}"
+        ]
+    }
+
+    // =========================================================================
+    // DoD Fanout (only if DoD missing)
+    // =========================================================================
+
+    subgraph cluster_dod {
+        label="DoD Fanout"
+        node [shape=box]
+
+        dod_fanout [shape=component, label="DoD Fan-Out"]
+
+        dod_a [
+            class="branch-a",
+            prompt="You are a Definition of Done author for the OmniFocal project.\n\nRead .ai/runs/$KILROY_RUN_ID/spec.md.\n\nPropose a comprehensive DoD covering:\n- Scope (in-scope and out-of-scope)\n- Deliverables (omnifocal-server binary, launchd plist, omnifocal skill SKILL.md)\n- Acceptance criteria (verifiable, pass/fail) for: server build, /eval endpoint, /health endpoint, launchd plist, skill structure, read-only enforcement, query composition, agent round trip\n- Integration test scenarios with concrete steps\n- Evidence contract (artifacts, manifest)\n- Non-goals\n\nDoD is outcomes/evidence, not a plan. Do not prescribe implementation approach.\n\nWrite to .ai/runs/$KILROY_RUN_ID/dod_a.md\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):\n- Success: {\"status\":\"success\"}\n- Failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\"}"
+        ]
+
+        dod_b [
+            class="branch-b",
+            prompt="You are a Definition of Done author for the OmniFocal project.\n\nRead .ai/runs/$KILROY_RUN_ID/spec.md.\n\nPropose a comprehensive DoD covering:\n- Scope (in-scope and out-of-scope)\n- Deliverables (omnifocal-server binary, launchd plist, omnifocal skill SKILL.md)\n- Acceptance criteria (verifiable, pass/fail) for: server build, /eval endpoint, /health endpoint, launchd plist, skill structure, read-only enforcement, query composition, agent round trip\n- Integration test scenarios with concrete steps\n- Evidence contract (artifacts, manifest)\n- Non-goals\n\nDoD is outcomes/evidence, not a plan. Do not prescribe implementation approach.\n\nWrite to .ai/runs/$KILROY_RUN_ID/dod_b.md\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):\n- Success: {\"status\":\"success\"}\n- Failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\"}"
+        ]
+
+        dod_c [
+            class="branch-c",
+            prompt="You are a Definition of Done author for the OmniFocal project.\n\nRead .ai/runs/$KILROY_RUN_ID/spec.md.\n\nPropose a comprehensive DoD covering:\n- Scope (in-scope and out-of-scope)\n- Deliverables (omnifocal-server binary, launchd plist, omnifocal skill SKILL.md)\n- Acceptance criteria (verifiable, pass/fail) for: server build, /eval endpoint, /health endpoint, launchd plist, skill structure, read-only enforcement, query composition, agent round trip\n- Integration test scenarios with concrete steps\n- Evidence contract (artifacts, manifest)\n- Non-goals\n\nDoD is outcomes/evidence, not a plan. Do not prescribe implementation approach.\n\nWrite to .ai/runs/$KILROY_RUN_ID/dod_c.md\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):\n- Success: {\"status\":\"success\"}\n- Failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\"}"
+        ]
+
+        consolidate_dod [
+            auto_status=true,
+            prompt="You are a DoD synthesizer for the OmniFocal project.\n\nRead the three DoD proposals:\n- Check parallel_results.json for worktree paths; if missing, read from current worktree\n- Read .ai/runs/$KILROY_RUN_ID/dod_a.md, dod_b.md, dod_c.md\n- Read .ai/runs/$KILROY_RUN_ID/spec.md for context\n\nSynthesize the best elements into a consensus DoD. Resolve contradictions. Ensure:\n- All AC groups covered (server build, /eval, /health, plist, skill structure, read-only, query composition, e2e)\n- Integration test scenarios are concrete and automatable\n- Evidence contract is specified\n- Self-verification requirements included\n\nWrite to .ai/runs/$KILROY_RUN_ID/definition_of_done.md\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH) ONLY on failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\"}"
+        ]
+    }
+
+    // =========================================================================
+    // Planning (SINGLE node, no fan-out)
+    // =========================================================================
+
+    subgraph cluster_planning {
+        label="Planning"
+        node [shape=box]
+
+        plan_work [
+            class="review",
+            auto_status=true,
+            prompt="You are an implementation planner for the OmniFocal project.\n\nGoal: $goal\n\nRead:\n- .ai/runs/$KILROY_RUN_ID/spec.md\n- .ai/runs/$KILROY_RUN_ID/definition_of_done.md\n- docs/plans/2026-03-21-omnifocal-design.md\n- docs/specs/OMNIFOCUS-OMNI-AUTOMATION-API.md (key classes: Application, Document, Task, Project, Folder, Tag, Perspective)\n- docs/specs/NANOCLAW-REFERENCE.md (Container Skills section — SKILL.md format, frontmatter, allowed-tools)\n\nIf .ai/runs/$KILROY_RUN_ID/postmortem_latest.md exists, read it FIRST and incorporate its lessons. The plan must address every identified issue.\n\nCreate a detailed implementation plan covering:\n\n1. Server implementation (cmd/omnifocal-server/main.go):\n   - HTTP server on 0.0.0.0:7890\n   - GET /health -> 200\n   - POST /eval -> read body, reject empty with 400, exec osascript -l JavaScript, return stdout as 200 or stderr as 500\n   - go.mod with module path\n\n2. launchd plist (launchd/com.omnifocal.server.plist):\n   - ProgramArguments, KeepAlive=true, StandardOutPath, StandardErrorPath\n\n3. Skill (skills/omnifocal/SKILL.md):\n   - YAML frontmatter (name: omnifocal, description)\n   - OmniFocus API reference (key read-only accessors from the API spec)\n   - Query composition patterns with examples (flattenedTasks, flattenedProjects, inbox, tags)\n   - Read-only guardrails (never assign, never mutate, never save())\n   - Server communication (POST to configured URL /eval)\n   - JSON.stringify for result serialization\n\n4. Validate scripts (all written by implement_server / implement_skill):\n   - scripts/validate-fmt.sh: gofmt -l check\n   - scripts/validate-build.sh: go build\n   - scripts/validate-test-server.sh: IT-1 through IT-5 with concrete curl commands\n   - scripts/validate-skill-structure.sh: IT-6 checks\n   - scripts/validate-skill-e2e.sh: IT-7 Claude Code CLI test\n\n5. Dependency order: server first, then skill (skill test needs running server)\n\nWrite to .ai/runs/$KILROY_RUN_ID/plan_final.md\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH) ONLY on failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\"}"
+        ]
+
+        check_state [
+            shape=diamond,
+            label="Code exists?"
+        ]
+    }
+
+    // =========================================================================
+    // Server Implementation (SINGLE node)
+    // =========================================================================
+
+    subgraph cluster_server {
+        label="Server Implementation"
+
+        implement_server [
+            shape=box,
+            class="hard",
+            auto_status=true,
+            max_retries=2,
+            max_agent_turns=300,
+            prompt="You are implementing the OmniFocal server component.\n\nGoal: $goal\n\nREPAIR FIRST: If .ai/runs/$KILROY_RUN_ID/postmortem_latest.md exists, read it FIRST. Fix ONLY identified gaps. Do NOT regenerate working systems. Preserve all passing code and tests.\n\nFRESH: If no postmortem, execute .ai/runs/$KILROY_RUN_ID/plan_final.md.\n\nRead:\n- .ai/runs/$KILROY_RUN_ID/spec.md\n- .ai/runs/$KILROY_RUN_ID/definition_of_done.md\n- docs/plans/2026-03-21-omnifocal-design.md\n\nDeliver ALL of these files:\n\n1. go.mod — module github.com/qwibitai/omnifocal, Go 1.21+\n\n2. cmd/omnifocal-server/main.go — Go HTTP server:\n   - Listen on addr from env OMNIFOCAL_ADDR or default 0.0.0.0:7890\n   - GET /health -> respond 200 with body \"ok\"\n   - POST /eval:\n     * Read request body fully\n     * If body is empty, respond 400 with \"empty request body\"\n     * Execute: osascript -l JavaScript -e '<body content>'\n     * If osascript exits 0: respond 200 with stdout (Content-Type: text/plain)\n     * If osascript exits non-zero: respond 500 with stderr (Content-Type: text/plain)\n   - Log startup message with listen address\n\n3. launchd/com.omnifocal.server.plist — launchd plist:\n   - Label: com.omnifocal.server\n   - ProgramArguments: path to omnifocal-server binary\n   - KeepAlive: true\n   - RunAtLoad: true\n   - StandardOutPath and StandardErrorPath under /tmp/\n\n4. scripts/validate-fmt.sh:\n   #!/bin/sh\n   set -e\n   trap 'echo \"KILROY_VALIDATE_FAILURE: validate-fmt.sh crashed at line $LINENO\"; exit 1' EXIT\n   UNFMT=$(gofmt -l cmd/omnifocal-server/)\n   if [ -n \"$UNFMT\" ]; then\n     echo \"Unformatted files: $UNFMT\"\n     exit 1\n   fi\n   echo \"All Go files formatted correctly\"\n   trap - EXIT\n\n5. scripts/validate-build.sh:\n   #!/bin/sh\n   set -e\n   trap 'echo \"KILROY_VALIDATE_FAILURE: validate-build.sh crashed at line $LINENO\"; exit 1' EXIT\n   go build -o omnifocal-server ./cmd/omnifocal-server/\n   if [ ! -f omnifocal-server ]; then\n     echo \"Binary not produced\"\n     exit 1\n   fi\n   echo \"Build successful: omnifocal-server binary produced\"\n   trap - EXIT\n\n6. scripts/validate-test-server.sh — THIS IS THE CRITICAL SCRIPT. It runs IT-1 through IT-5.\n   DO NOT use go test. Use curl for all HTTP tests.\n\n   The script MUST:\n   a) Set up evidence directory: EVIDENCE_DIR=\".ai/runs/$KILROY_RUN_ID/test-evidence/latest\"\n   b) Build the binary: go build -o omnifocal-server ./cmd/omnifocal-server/\n   c) Start the server in background: ./omnifocal-server & SERVER_PID=$!\n   d) Wait for server ready: retry curl http://127.0.0.1:7890/health up to 10 times with 1s sleep between retries\n   e) Run IT-1 (Server Build and Start):\n      - mkdir -p $EVIDENCE_DIR/IT-1\n      - The build already succeeded (step b). Write build output to $EVIDENCE_DIR/IT-1/build.log\n      - curl -s -w '\\n%{http_code}' http://127.0.0.1:7890/health > $EVIDENCE_DIR/IT-1/health_response.txt\n      - Verify last line is 200\n   f) Run IT-2 (Server /eval Happy Path):\n      - mkdir -p $EVIDENCE_DIR/IT-2\n      - curl -s -w '\\n%{http_code}' -X POST -d 'var app = Application(\"OmniFocus\"); var doc = app.defaultDocument; var tasks = doc.flattenedTasks(); JSON.stringify(tasks.slice(0, 5).map(function(t) { return {name: t.name(), id: t.id()}; }))' http://127.0.0.1:7890/eval > /tmp/it2_raw.txt\n      - Extract HTTP status (last line) to $EVIDENCE_DIR/IT-2/http_status.txt\n      - Extract response body (all but last line) to $EVIDENCE_DIR/IT-2/response.txt\n      - Verify HTTP status is 200\n      - Verify response.txt is non-empty and not \"null\" or \"undefined\"\n   g) Run IT-3 (Server /eval Error Handling):\n      - mkdir -p $EVIDENCE_DIR/IT-3\n      - Test 500: curl -s -w '\\n%{http_code}' -X POST -d 'this is not valid javascript syntax %%%' http://127.0.0.1:7890/eval > /tmp/it3_500_raw.txt\n      - Extract status to $EVIDENCE_DIR/IT-3/error_500_status.txt, body to $EVIDENCE_DIR/IT-3/error_500_response.txt\n      - Verify status is 500\n      - Verify error_500_response.txt contains error text (case-insensitive grep for 'error\\|Error\\|execution')\n      - Test 400: curl -s -w '\\n%{http_code}' -X POST -d '' http://127.0.0.1:7890/eval > /tmp/it3_400_raw.txt\n      - Extract status to $EVIDENCE_DIR/IT-3/error_400_status.txt, body to $EVIDENCE_DIR/IT-3/error_400_response.txt\n      - Verify status is 400\n      - Verify error_400_response.txt is non-empty\n   h) Run IT-4 (Health Check):\n      - mkdir -p $EVIDENCE_DIR/IT-4\n      - curl -s -w '\\n%{http_code}' http://127.0.0.1:7890/health > $EVIDENCE_DIR/IT-4/health_response.txt\n      - Verify last line contains 200\n   i) Run IT-5 (launchd Plist Validation):\n      - mkdir -p $EVIDENCE_DIR/IT-5\n      - plutil -lint launchd/com.omnifocal.server.plist > $EVIDENCE_DIR/IT-5/plutil_output.txt 2>&1\n      - Verify output contains OK\n      - grep ProgramArguments launchd/com.omnifocal.server.plist > $EVIDENCE_DIR/IT-5/plist_contents.txt\n      - grep KeepAlive launchd/com.omnifocal.server.plist >> $EVIDENCE_DIR/IT-5/plist_contents.txt\n      - Verify plist_contents.txt contains both ProgramArguments and KeepAlive\n   j) Kill server: kill $SERVER_PID 2>/dev/null; wait $SERVER_PID 2>/dev/null\n   k) Write manifest.json to $EVIDENCE_DIR/manifest.json with entries for IT-1 through IT-5, each with status (pass/fail), artifact paths, and artifact types\n   l) SELF-VERIFICATION BLOCK (REQUIRED — script MUST fail if evidence is hollow):\n      - Verify manifest.json exists and is non-empty\n      - Verify manifest.json contains entries for IT-1, IT-2, IT-3, IT-4, IT-5\n      - Verify $EVIDENCE_DIR/IT-2/response.txt exists AND is non-empty AND does not contain only \"null\" or \"undefined\" — this file must contain real OmniFocus JSON data with at least one object having a \"name\" field\n      - Verify $EVIDENCE_DIR/IT-3/error_500_response.txt exists AND contains error text\n      - Verify $EVIDENCE_DIR/IT-5/plutil_output.txt exists AND contains OK\n      - If any self-verification check fails, print which check failed and exit 1\n      - Only after all self-verification checks pass, print \"All server ITs passed with verified evidence\" and exit 0\n\n   Include trap for crash detection:\n   trap 'kill $SERVER_PID 2>/dev/null; echo \"KILROY_VALIDATE_FAILURE: validate-test-server.sh crashed at line $LINENO\"; exit 1' EXIT\n   Clear trap before clean exit: trap - EXIT\n\nPRE-EXIT VERIFICATION (repair passes): If .ai/runs/$KILROY_RUN_ID/postmortem_latest.md exists, run sh scripts/validate-build.sh and re-read each targeted file to confirm the fix is present before exiting. Do NOT exit silently on a repair pass.\n\nLog progress to .ai/runs/$KILROY_RUN_ID/implementation_log.md.\nCommit code after each major file is written.\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH) ONLY on failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"server_impl_incomplete\"}"
+        ]
+    }
+
+    // =========================================================================
+    // Server Verification
+    // =========================================================================
+
+    subgraph cluster_server_verify {
+        label="Server Verification"
+
+        verify_fmt [
+            shape=parallelogram,
+            max_retries=0,
+            tool_command="sh scripts/validate-fmt.sh || { echo 'KILROY_VALIDATE_FAILURE: validate-fmt.sh missing or failed — postmortem must write scripts/validate-fmt.sh'; exit 1; }",
+            failure_signature="fmt_errors"
+        ]
+        check_fmt [shape=diamond, label="Fmt OK?"]
+
+        verify_build [
+            shape=parallelogram,
+            tool_command="sh scripts/validate-build.sh || { echo 'KILROY_VALIDATE_FAILURE: validate-build.sh missing or failed — postmortem must write scripts/validate-build.sh'; exit 1; }",
+            failure_signature="build_errors"
+        ]
+        check_build [shape=diamond, label="Build OK?"]
+
+        verify_test_server [
+            shape=parallelogram,
+            tool_command="sh scripts/validate-test-server.sh || { echo 'KILROY_VALIDATE_FAILURE: validate-test-server.sh missing or failed — postmortem must write scripts/validate-test-server.sh'; exit 1; }",
+            failure_signature="server_test_errors"
+        ]
+        check_test_server [shape=diamond, label="Server Tests OK?"]
+
+        verify_fidelity_server [
+            shape=box,
+            class="verify",
+            failure_signature="server_fidelity_gaps",
+            prompt="You are a fidelity reviewer for the OmniFocal server component.\n\nCRITICAL — DO NOT TRUST tool node results. You must verify independently.\n\nGoal: $goal\n\nRead:\n- .ai/runs/$KILROY_RUN_ID/definition_of_done.md\n- .ai/runs/$KILROY_RUN_ID/spec.md\n\nVerify EACH acceptance criterion by reading the actual source files and evidence artifacts:\n\nAC-1 (Server Build): cmd/omnifocal-server/main.go — verify it compiles, defines main(), listens on port 7890\nAC-2 (Server /eval): cmd/omnifocal-server/main.go — verify POST /eval handler reads body, rejects empty with 400, execs osascript, returns 200/500\nAC-3 (Server /health): cmd/omnifocal-server/main.go — verify GET /health handler returns 200\nAC-4 (launchd Plist): launchd/com.omnifocal.server.plist — verify valid XML with ProgramArguments and KeepAlive\n\nThen read actual evidence artifact content from .ai/runs/$KILROY_RUN_ID/test-evidence/latest/:\n- Read IT-2/response.txt — verify it contains real JSON with OmniFocus data (objects with 'name' fields), NOT empty, NOT placeholder, NOT just 'ok' or 'pass'\n- Read IT-3/error_500_response.txt — verify it contains real osascript error text, NOT empty or generic\n- Read IT-5/plutil_output.txt — verify it contains 'OK' from plutil\n- Read manifest.json — verify all IT-1 through IT-5 are present with pass status\n\nIf ANY evidence artifact is missing, empty, contains only placeholder text, or does not match the expected content described above, FAIL with specific details about which artifact failed and why.\n\nWrite results to .ai/runs/$KILROY_RUN_ID/verify_fidelity_server.md\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):\n- All pass: {\"status\":\"success\"}\n- Any fail: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"server_fidelity_gaps\"}"
+        ]
+        check_server_fidelity [shape=diamond, label="Server Fidelity OK?"]
+    }
+
+    // =========================================================================
+    // Skill Implementation (SINGLE node)
+    // =========================================================================
+
+    subgraph cluster_skill {
+        label="Skill Implementation"
+
+        implement_skill [
+            shape=box,
+            class="hard",
+            auto_status=true,
+            max_retries=2,
+            max_agent_turns=300,
+            prompt="You are implementing the OmniFocal NanoClaw skill.\n\nGoal: $goal\n\nREPAIR FIRST: If .ai/runs/$KILROY_RUN_ID/postmortem_latest.md exists, read it FIRST. Fix ONLY identified gaps. Do NOT regenerate working systems. Preserve all passing code.\n\nFRESH: If no postmortem, execute .ai/runs/$KILROY_RUN_ID/plan_final.md.\n\nRead:\n- .ai/runs/$KILROY_RUN_ID/spec.md\n- .ai/runs/$KILROY_RUN_ID/definition_of_done.md\n- docs/plans/2026-03-21-omnifocal-design.md\n- docs/specs/OMNIFOCUS-OMNI-AUTOMATION-API.md (extract key read-only API surface)\n- docs/specs/NANOCLAW-REFERENCE.md (Container Skills section for SKILL.md format)\n\nDeliver ALL of these files:\n\n1. skills/omnifocal/SKILL.md — NanoClaw container skill (UNDER 500 lines):\n   YAML frontmatter:\n   ---\n   name: omnifocal\n   description: Query OmniFocus tasks, projects, folders, tags, and perspectives via the OmniFocal server. Read-only access to your OmniFocus database through Omni Automation JavaScript API.\n   ---\n\n   Content sections:\n   a) Overview: what this skill does, read-only constraint\n   b) Server Communication: POST to http://<host>:7890/eval with JS body, use curl\n      - Example: curl -s -X POST -d '<js code>' http://192.168.64.1:7890/eval\n   c) OmniFocus API Reference (key read-only accessors):\n      - Application('OmniFocus').defaultDocument\n      - doc.flattenedTasks, doc.flattenedProjects, doc.flattenedFolders, doc.flattenedTags\n      - doc.inboxTasks (inbox items)\n      - Task properties: name(), id(), note(), completed(), dueDate(), deferDate(), flagged(), tags()\n      - Project properties: name(), id(), status(), tasks(), flattenedTasks()\n      - Folder properties: name(), id(), projects(), flattenedProjects()\n      - Tag properties: name(), id(), tasks()\n      - Perspective.BuiltIn (inbox, projects, tags, forecast, flagged, review)\n   d) Query Composition Patterns with examples:\n      - List inbox tasks\n      - List all projects\n      - Find tasks by tag\n      - Search tasks by name\n      - Get overdue tasks\n      - Get flagged tasks\n      Each example shows the full JS string and expected JSON output format\n   e) Read-Only Guardrails:\n      - NEVER assign properties (no .name = , .note = , etc.)\n      - NEVER call mutating methods (no save(), no markComplete())\n      - NEVER use constructors (no new Task(), new Project(), new Folder(), new Tag())\n      - Always return results via JSON.stringify()\n   f) Result Serialization: always wrap return value in JSON.stringify()\n\n2. scripts/validate-skill-structure.sh — IT-6 validation:\n   #!/bin/sh\n   set -e\n   trap 'echo \"KILROY_VALIDATE_FAILURE: validate-skill-structure.sh crashed at line $LINENO\"; exit 1' EXIT\n   EVIDENCE_DIR=\".ai/runs/$KILROY_RUN_ID/test-evidence/latest\"\n   mkdir -p $EVIDENCE_DIR/IT-6\n   RESULT_FILE=$EVIDENCE_DIR/IT-6/skill_validation.txt\n   SKILL_FILE=skills/omnifocal/SKILL.md\n   PASS_COUNT=0\n   FAIL_COUNT=0\n\n   # Check 1: File exists\n   if [ -f \"$SKILL_FILE\" ]; then echo \"PASS: File exists\" >> $RESULT_FILE; PASS_COUNT=$((PASS_COUNT+1)); else echo \"FAIL: File does not exist\" >> $RESULT_FILE; FAIL_COUNT=$((FAIL_COUNT+1)); fi\n\n   # Check 2: Frontmatter has name and description\n   if head -20 \"$SKILL_FILE\" | grep -q 'name:' && head -20 \"$SKILL_FILE\" | grep -q 'description:'; then echo \"PASS: frontmatter check\" >> $RESULT_FILE; PASS_COUNT=$((PASS_COUNT+1)); else echo \"FAIL: frontmatter check\" >> $RESULT_FILE; FAIL_COUNT=$((FAIL_COUNT+1)); fi\n\n   # Check 3: Under 500 lines\n   LINES=$(wc -l < \"$SKILL_FILE\")\n   if [ \"$LINES\" -lt 500 ]; then echo \"PASS: line count check ($LINES lines)\" >> $RESULT_FILE; PASS_COUNT=$((PASS_COUNT+1)); else echo \"FAIL: line count check ($LINES lines)\" >> $RESULT_FILE; FAIL_COUNT=$((FAIL_COUNT+1)); fi\n\n   # Check 4: No mutating patterns\n   if grep -qE 'save\\(\\)|\\.name\\s*=|new Task|new Project|new Folder|new Tag' \"$SKILL_FILE\"; then echo \"FAIL: no-mutating-patterns check\" >> $RESULT_FILE; FAIL_COUNT=$((FAIL_COUNT+1)); else echo \"PASS: no-mutating-patterns check\" >> $RESULT_FILE; PASS_COUNT=$((PASS_COUNT+1)); fi\n\n   # Check 5: Read-only text present\n   if grep -qi 'read-only\\|never assign\\|never mutate' \"$SKILL_FILE\"; then echo \"PASS: read-only text check\" >> $RESULT_FILE; PASS_COUNT=$((PASS_COUNT+1)); else echo \"FAIL: read-only text check\" >> $RESULT_FILE; FAIL_COUNT=$((FAIL_COUNT+1)); fi\n\n   # Check 6: Query patterns present\n   if grep -q 'flattenedTasks\\|flattenedProjects' \"$SKILL_FILE\"; then echo \"PASS: query pattern check\" >> $RESULT_FILE; PASS_COUNT=$((PASS_COUNT+1)); else echo \"FAIL: query pattern check\" >> $RESULT_FILE; FAIL_COUNT=$((FAIL_COUNT+1)); fi\n\n   # Check 7: JSON.stringify present\n   if grep -q 'JSON.stringify' \"$SKILL_FILE\"; then echo \"PASS: JSON.stringify check\" >> $RESULT_FILE; PASS_COUNT=$((PASS_COUNT+1)); else echo \"FAIL: JSON.stringify check\" >> $RESULT_FILE; FAIL_COUNT=$((FAIL_COUNT+1)); fi\n\n   # Check 8: POST instruction present\n   if grep -q 'POST' \"$SKILL_FILE\" && grep -qE '/eval|curl' \"$SKILL_FILE\"; then echo \"PASS: POST instruction check\" >> $RESULT_FILE; PASS_COUNT=$((PASS_COUNT+1)); else echo \"FAIL: POST instruction check\" >> $RESULT_FILE; FAIL_COUNT=$((FAIL_COUNT+1)); fi\n\n   echo \"\" >> $RESULT_FILE\n   echo \"Results: $PASS_COUNT passed, $FAIL_COUNT failed\" >> $RESULT_FILE\n\n   # Write manifest entry for IT-6\n   # (Append to existing manifest or create)\n   MANIFEST=$EVIDENCE_DIR/manifest.json\n   if [ -f \"$MANIFEST\" ]; then\n     # Read existing, we will handle this in the self-verification\n     true\n   fi\n\n   # SELF-VERIFICATION BLOCK\n   if [ $FAIL_COUNT -gt 0 ]; then\n     echo \"SELF-VERIFICATION FAILED: $FAIL_COUNT checks failed\"\n     cat $RESULT_FILE\n     exit 1\n   fi\n   if [ ! -s \"$RESULT_FILE\" ]; then\n     echo \"SELF-VERIFICATION FAILED: skill_validation.txt is empty\"\n     exit 1\n   fi\n   if ! grep -q 'PASS' \"$RESULT_FILE\"; then\n     echo \"SELF-VERIFICATION FAILED: No PASS entries in skill_validation.txt\"\n     exit 1\n   fi\n   echo \"All skill structure checks passed with verified evidence\"\n   trap - EXIT\n\n3. scripts/validate-skill-e2e.sh — IT-7 validation (Claude Code CLI round trip):\n   #!/bin/sh\n   set -e\n   trap 'kill $SERVER_PID 2>/dev/null; echo \"KILROY_VALIDATE_FAILURE: validate-skill-e2e.sh crashed at line $LINENO\"; exit 1' EXIT\n   EVIDENCE_DIR=\".ai/runs/$KILROY_RUN_ID/test-evidence/latest\"\n   mkdir -p $EVIDENCE_DIR/IT-7\n\n   # Build and start server\n   go build -o omnifocal-server ./cmd/omnifocal-server/\n   ./omnifocal-server > $EVIDENCE_DIR/IT-7/server.log 2>&1 & SERVER_PID=$!\n\n   # Wait for server\n   TRIES=0\n   while [ $TRIES -lt 10 ]; do\n     if curl -s http://127.0.0.1:7890/health >/dev/null 2>&1; then break; fi\n     TRIES=$((TRIES+1))\n     sleep 1\n   done\n   if [ $TRIES -eq 10 ]; then\n     echo \"Server failed to start\"\n     kill $SERVER_PID 2>/dev/null\n     exit 1\n   fi\n\n   # Create temp workspace with skill installed\n   TMPDIR=$(mktemp -d)\n   mkdir -p $TMPDIR/.claude/skills/omnifocal/\n   cp skills/omnifocal/SKILL.md $TMPDIR/.claude/skills/omnifocal/SKILL.md\n\n   # Run Claude Code CLI\n   cd $TMPDIR\n   claude -p \"Use the omnifocal skill to list my OmniFocus inbox tasks. The server is at http://127.0.0.1:7890. Return the raw JSON result.\" --allowedTools 'Bash(curl:*)' --max-turns 5 > $EVIDENCE_DIR/IT-7/claude_output.txt 2>&1 || true\n   cd -\n\n   # Clean up temp dir\n   rm -rf $TMPDIR\n\n   # Kill server\n   kill $SERVER_PID 2>/dev/null\n   wait $SERVER_PID 2>/dev/null || true\n\n   # SELF-VERIFICATION BLOCK\n   if [ ! -s \"$EVIDENCE_DIR/IT-7/claude_output.txt\" ]; then\n     echo \"SELF-VERIFICATION FAILED: claude_output.txt is empty\"\n     exit 1\n   fi\n   # Check for real OmniFocus data (JSON with name field)\n   if grep -q '\"name\"' $EVIDENCE_DIR/IT-7/claude_output.txt; then\n     echo \"PASS: Claude output contains OmniFocus data with name fields\"\n   else\n     echo \"WARNING: Claude output may not contain structured OmniFocus data — manual review needed\"\n     echo \"Output preview:\"\n     head -20 $EVIDENCE_DIR/IT-7/claude_output.txt\n   fi\n\n   echo \"Skill e2e test completed\"\n   trap - EXIT\n\nPRE-EXIT VERIFICATION (repair passes): If .ai/runs/$KILROY_RUN_ID/postmortem_latest.md exists, run sh scripts/validate-skill-structure.sh and re-read skills/omnifocal/SKILL.md to confirm the fix is present before exiting.\n\nLog progress to .ai/runs/$KILROY_RUN_ID/implementation_log.md.\nCommit code after each major file is written.\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH) ONLY on failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"skill_impl_incomplete\"}"
+        ]
+    }
+
+    // =========================================================================
+    // Skill Verification
+    // =========================================================================
+
+    subgraph cluster_skill_verify {
+        label="Skill Verification"
+
+        verify_skill_structure [
+            shape=parallelogram,
+            tool_command="sh scripts/validate-skill-structure.sh || { echo 'KILROY_VALIDATE_FAILURE: validate-skill-structure.sh missing or failed — postmortem must write scripts/validate-skill-structure.sh'; exit 1; }",
+            failure_signature="skill_structure_errors"
+        ]
+        check_skill_structure [shape=diamond, label="Skill Structure OK?"]
+
+        verify_skill_e2e [
+            shape=parallelogram,
+            tool_command="sh scripts/validate-skill-e2e.sh || { echo 'KILROY_VALIDATE_FAILURE: validate-skill-e2e.sh missing or failed — postmortem must write scripts/validate-skill-e2e.sh'; exit 1; }",
+            failure_signature="skill_e2e_errors"
+        ]
+        check_skill_e2e [shape=diamond, label="Skill E2E OK?"]
+
+        verify_fidelity_skill [
+            shape=box,
+            class="verify",
+            failure_signature="skill_fidelity_gaps",
+            prompt="You are a fidelity reviewer for the OmniFocal skill component.\n\nCRITICAL — DO NOT TRUST tool node results. You must verify independently.\n\nGoal: $goal\n\nRead:\n- .ai/runs/$KILROY_RUN_ID/definition_of_done.md\n- .ai/runs/$KILROY_RUN_ID/spec.md\n\nVerify EACH acceptance criterion by reading the actual source files and evidence artifacts:\n\nAC-5 (Skill Structure): skills/omnifocal/SKILL.md — verify file exists, has YAML frontmatter with name and description, is under 500 lines\nAC-6 (Read-Only): skills/omnifocal/SKILL.md — verify no mutating patterns (save(), .name =, new Task, etc.), contains read-only instruction text\nAC-7 (Query Composition): skills/omnifocal/SKILL.md — verify contains query examples with flattenedTasks/flattenedProjects, JSON.stringify, POST /eval instruction\nAC-8 (Integration): Read evidence artifacts\n\nThen read actual evidence artifact content from .ai/runs/$KILROY_RUN_ID/test-evidence/latest/:\n- Read IT-6/skill_validation.txt — verify it contains PASS results for ALL checks (frontmatter, line count, no-mutating, read-only, query patterns, JSON.stringify, POST instruction). Must NOT contain any FAIL entries.\n- Read IT-7/claude_output.txt — verify it contains real OmniFocus data in JSON format with recognizable fields (name, id, etc.). Must NOT be empty, error-only, or placeholder.\n- Read manifest.json — verify IT-6 and IT-7 are present\n\nIf ANY evidence artifact is missing, empty, contains only placeholder text, or does not match expected content, FAIL with specific details.\n\nWrite results to .ai/runs/$KILROY_RUN_ID/verify_fidelity_skill.md\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):\n- All pass: {\"status\":\"success\"}\n- Any fail: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"skill_fidelity_gaps\"}"
+        ]
+        check_skill_fidelity [shape=diamond, label="Skill Fidelity OK?"]
+    }
+
+    // =========================================================================
+    // Review Fanout
+    // =========================================================================
+
+    subgraph cluster_review {
+        label="Review Fanout"
+        node [shape=box]
+
+        review_fanout [shape=component, label="Review Fan-Out"]
+
+        review_a [
+            class="branch-a",
+            prompt="You are a code reviewer for the OmniFocal project.\n\nGoal: $goal\n\nRead .ai/runs/$KILROY_RUN_ID/definition_of_done.md for acceptance criteria.\n\nReview the implementation against ALL acceptance criteria (AC-1 through AC-8):\n\nAC-1: Read cmd/omnifocal-server/main.go — verify it builds, defines main(), listens on 7890, responds to GET /health with 200\nAC-2: Read cmd/omnifocal-server/main.go — verify POST /eval reads body, rejects empty (400), execs osascript (200/500)\nAC-3: Read cmd/omnifocal-server/main.go — verify GET /health returns 200\nAC-4: Read launchd/com.omnifocal.server.plist — verify valid XML, ProgramArguments, KeepAlive=true\nAC-5: Read skills/omnifocal/SKILL.md — verify exists, YAML frontmatter, under 500 lines\nAC-6: Read skills/omnifocal/SKILL.md — verify no mutating patterns, read-only text present\nAC-7: Read skills/omnifocal/SKILL.md — verify query examples, JSON.stringify, POST /eval\nAC-8: Read .ai/runs/$KILROY_RUN_ID/test-evidence/latest/IT-7/claude_output.txt — verify real data\n\nAlso check:\n- Code quality (error handling, logging, clean structure)\n- Security (no auth needed per spec, but no obvious vulnerabilities)\n- Completeness (all deliverables present)\n\nVerdict: APPROVED or REJECTED with specific evidence for each AC.\n\nWrite to .ai/runs/$KILROY_RUN_ID/review_a.md\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):\n- APPROVED: {\"status\":\"success\"}\n- REJECTED: {\"status\":\"rejected\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"review_rejected\"}"
+        ]
+
+        review_b [
+            class="branch-b",
+            prompt="You are a code reviewer for the OmniFocal project.\n\nGoal: $goal\n\nRead .ai/runs/$KILROY_RUN_ID/definition_of_done.md for acceptance criteria.\n\nReview the implementation against ALL acceptance criteria (AC-1 through AC-8):\n\nAC-1: Read cmd/omnifocal-server/main.go — verify it builds, defines main(), listens on 7890, responds to GET /health with 200\nAC-2: Read cmd/omnifocal-server/main.go — verify POST /eval reads body, rejects empty (400), execs osascript (200/500)\nAC-3: Read cmd/omnifocal-server/main.go — verify GET /health returns 200\nAC-4: Read launchd/com.omnifocal.server.plist — verify valid XML, ProgramArguments, KeepAlive=true\nAC-5: Read skills/omnifocal/SKILL.md — verify exists, YAML frontmatter, under 500 lines\nAC-6: Read skills/omnifocal/SKILL.md — verify no mutating patterns, read-only text present\nAC-7: Read skills/omnifocal/SKILL.md — verify query examples, JSON.stringify, POST /eval\nAC-8: Read .ai/runs/$KILROY_RUN_ID/test-evidence/latest/IT-7/claude_output.txt — verify real data\n\nAlso check:\n- Code quality (error handling, logging, clean structure)\n- Security (no auth needed per spec, but no obvious vulnerabilities)\n- Completeness (all deliverables present)\n\nVerdict: APPROVED or REJECTED with specific evidence for each AC.\n\nWrite to .ai/runs/$KILROY_RUN_ID/review_b.md\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):\n- APPROVED: {\"status\":\"success\"}\n- REJECTED: {\"status\":\"rejected\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"review_rejected\"}"
+        ]
+
+        review_c [
+            class="branch-c",
+            prompt="You are a code reviewer for the OmniFocal project.\n\nGoal: $goal\n\nRead .ai/runs/$KILROY_RUN_ID/definition_of_done.md for acceptance criteria.\n\nReview the implementation against ALL acceptance criteria (AC-1 through AC-8):\n\nAC-1: Read cmd/omnifocal-server/main.go — verify it builds, defines main(), listens on 7890, responds to GET /health with 200\nAC-2: Read cmd/omnifocal-server/main.go — verify POST /eval reads body, rejects empty (400), execs osascript (200/500)\nAC-3: Read cmd/omnifocal-server/main.go — verify GET /health returns 200\nAC-4: Read launchd/com.omnifocal.server.plist — verify valid XML, ProgramArguments, KeepAlive=true\nAC-5: Read skills/omnifocal/SKILL.md — verify exists, YAML frontmatter, under 500 lines\nAC-6: Read skills/omnifocal/SKILL.md — verify no mutating patterns, read-only text present\nAC-7: Read skills/omnifocal/SKILL.md — verify query examples, JSON.stringify, POST /eval\nAC-8: Read .ai/runs/$KILROY_RUN_ID/test-evidence/latest/IT-7/claude_output.txt — verify real data\n\nAlso check:\n- Code quality (error handling, logging, clean structure)\n- Security (no auth needed per spec, but no obvious vulnerabilities)\n- Completeness (all deliverables present)\n\nVerdict: APPROVED or REJECTED with specific evidence for each AC.\n\nWrite to .ai/runs/$KILROY_RUN_ID/review_c.md\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):\n- APPROVED: {\"status\":\"success\"}\n- REJECTED: {\"status\":\"rejected\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"review_rejected\"}"
+        ]
+
+        review_consensus [
+            auto_status=true,
+            goal_gate=true,
+            retry_target="postmortem",
+            prompt="You are the review consensus synthesizer for the OmniFocal project.\n\nGoal: $goal\n\nRead the three review outputs:\n- Check parallel_results.json for worktree paths; if missing, read from current worktree\n- Read .ai/runs/$KILROY_RUN_ID/review_a.md, review_b.md, review_c.md\n- Read .ai/runs/$KILROY_RUN_ID/definition_of_done.md for criteria\n\nConsensus rules:\n- 2+ APPROVED with no critical gaps -> success\n- Otherwise -> rejected with specific issues listed\n\nWrite to .ai/runs/$KILROY_RUN_ID/review_consensus.md\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):\n- Consensus APPROVED: {\"status\":\"success\"}\n- Consensus REJECTED: {\"status\":\"rejected\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"review_consensus_rejected\"}"
+        ]
+    }
+
+    // =========================================================================
+    // Repair nodes
+    // =========================================================================
+
+    subgraph cluster_repair {
+        label="Repair"
+        node [shape=box]
+
+        repair_server [
+            class="hard",
+            auto_status=true,
+            max_retries=2,
+            max_agent_turns=300,
+            prompt="You are repairing the OmniFocal server component.\n\nGoal: $goal\n\nRead .ai/runs/$KILROY_RUN_ID/postmortem_latest.md FIRST. Fix ONLY the identified gaps. Do NOT regenerate working systems. Preserve all passing code and tests.\n\nRead:\n- .ai/runs/$KILROY_RUN_ID/spec.md\n- .ai/runs/$KILROY_RUN_ID/definition_of_done.md\n- .ai/runs/$KILROY_RUN_ID/plan_final.md\n- cmd/omnifocal-server/main.go (current state)\n- launchd/com.omnifocal.server.plist (current state)\n- scripts/validate-*.sh (current state)\n\nApply targeted fixes based on postmortem findings. After fixes:\n1. Run sh scripts/validate-build.sh — must pass\n2. Re-read each modified file to confirm the fix is present\n3. Do NOT exit silently — verify before completing\n\nLog progress to .ai/runs/$KILROY_RUN_ID/implementation_log.md (append).\nCommit code after each fix.\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH) ONLY on failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"server_repair_incomplete\"}"
+        ]
+
+        repair_skill [
+            class="hard",
+            auto_status=true,
+            max_retries=2,
+            max_agent_turns=300,
+            prompt="You are repairing the OmniFocal skill component.\n\nGoal: $goal\n\nRead .ai/runs/$KILROY_RUN_ID/postmortem_latest.md FIRST. Fix ONLY the identified gaps. Do NOT regenerate working systems. Preserve all passing code.\n\nRead:\n- .ai/runs/$KILROY_RUN_ID/spec.md\n- .ai/runs/$KILROY_RUN_ID/definition_of_done.md\n- .ai/runs/$KILROY_RUN_ID/plan_final.md\n- skills/omnifocal/SKILL.md (current state)\n- scripts/validate-skill-structure.sh (current state)\n- scripts/validate-skill-e2e.sh (current state)\n\nApply targeted fixes based on postmortem findings. After fixes:\n1. Run sh scripts/validate-skill-structure.sh — must pass\n2. Re-read skills/omnifocal/SKILL.md to confirm fix is present\n3. Do NOT exit silently — verify before completing\n\nLog progress to .ai/runs/$KILROY_RUN_ID/implementation_log.md (append).\nCommit code after each fix.\n\nWrite to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH) ONLY on failure: {\"status\":\"fail\",\"failure_reason\":\"...\",\"failure_class\":\"deterministic_agent_bug\",\"failure_signature\":\"skill_repair_incomplete\"}"
+        ]
+    }
+
+    // =========================================================================
+    // Postmortem
+    // =========================================================================
+
+    subgraph cluster_postmortem {
+        label="Postmortem"
+        node [shape=box]
+
+        postmortem [
+            auto_status=true,
+            prompt="You are the postmortem analyst for the OmniFocal project.\n\nGoal: $goal\n\nAnalyze the failure and guide the next repair iteration.\n\nRead (in order of priority):\n1. .ai/runs/$KILROY_RUN_ID/review_consensus.md (if review stage reached)\n2. .ai/runs/$KILROY_RUN_ID/verify_fidelity_server.md (if server fidelity ran)\n3. .ai/runs/$KILROY_RUN_ID/verify_fidelity_skill.md (if skill fidelity ran)\n4. .ai/runs/$KILROY_RUN_ID/implementation_log.md\n5. Branch review outputs via parallel_results.json + worktree_dir if available\n\nIf .ai/runs/$KILROY_RUN_ID/test-evidence/latest/manifest.json exists:\n- Read it first\n- For each failed or suspicious IT-* scenario, read the listed artifact files\n- Cite artifact file paths used as evidence in your analysis\n- If an artifact is missing/unreadable/not produced, record that as a finding with the attempted path\n\nOutput in .ai/runs/$KILROY_RUN_ID/postmortem_latest.md (overwrite previous):\n- Root causes (specific files, lines, behaviors)\n- What worked (PRESERVE — do not regenerate)\n- What failed (FIX — specific changes needed)\n- Concrete next changes (file-by-file repair instructions)\n- Whether the failure is in server code, skill code, or both\n- Must NOT direct from-scratch restart — preserve working code\n\nPROGRESS DETECTION (required):\n- Extract current failing AC IDs from verify_fidelity/review outputs\n- Read context key last_failing_acs (from previous postmortem iteration)\n- If failing AC set is IDENTICAL to last_failing_acs -> route needs_replan (zero progress; another repair will not help)\n- If failing AC set is smaller/different OR this is first failure -> route to appropriate repair node\n- Include context_updates in every status write: {\"context_updates\":{\"last_failing_acs\":\"AC-2,AC-6\"}} (sorted, comma-separated)\n\nOutcome classification — write ONE of these to $KILROY_STAGE_STATUS_PATH (fallback: $KILROY_STAGE_STATUS_FALLBACK_PATH):\n- Server repair needed (AC-1/2/3/4 failures): {\"status\":\"impl_repair_server\",\"context_updates\":{\"last_failing_acs\":\"...\"}}\n- Skill repair needed (AC-5/6/7/8 failures): {\"status\":\"impl_repair_skill\",\"context_updates\":{\"last_failing_acs\":\"...\"}}\n- Both need repair: {\"status\":\"impl_repair_both\",\"context_updates\":{\"last_failing_acs\":\"...\"}}\n- Plan/approach inadequate OR zero progress: {\"status\":\"needs_replan\",\"context_updates\":{\"last_failing_acs\":\"...\"}}\n- Toolchain/environment issue: {\"status\":\"needs_toolchain\",\"context_updates\":{\"last_failing_acs\":\"...\"}}"
+        ]
+    }
+
+    // =========================================================================
+    // Flow: Bootstrap
+    // =========================================================================
+
+    start -> check_toolchain
+    check_toolchain -> expand_spec [condition="outcome=success"]
+    check_toolchain -> check_toolchain [condition="outcome=fail && context.failure_class=transient_infra", loop_restart=true]
+    check_toolchain -> postmortem [condition="outcome=fail && context.failure_class!=transient_infra"]
+    check_toolchain -> postmortem
+    expand_spec -> check_dod
+
+    // DoD routing
+    check_dod -> dod_fanout [condition="outcome=needs_dod"]
+    check_dod -> dod_fanout
+    dod_fanout -> dod_a
+    dod_fanout -> dod_b
+    dod_fanout -> dod_c
+    dod_a -> consolidate_dod
+    dod_b -> consolidate_dod
+    dod_c -> consolidate_dod
+    consolidate_dod -> plan_work
+
+    // Skip to planning if DoD exists
+    check_dod -> plan_work [condition="outcome=has_dod"]
+
+    // =========================================================================
+    // Flow: Planning -> State Detection -> Implementation
+    // =========================================================================
+
+    plan_work -> check_state
+    check_state -> verify_fmt [condition="outcome=code_exists"]
+    check_state -> implement_server [condition="outcome=no_code"]
+    check_state -> implement_server
+
+    // =========================================================================
+    // Flow: Server Implementation -> Server Verification
+    // =========================================================================
+
+    implement_server -> verify_fmt
+
+    // Server verify chain
+    verify_fmt -> check_fmt
+    check_fmt -> verify_build [condition="outcome=success"]
+    check_fmt -> implement_server [condition="outcome=fail && context.failure_class=transient_infra", loop_restart=true]
+    check_fmt -> postmortem [condition="outcome=fail && context.failure_class!=transient_infra"]
+    check_fmt -> postmortem
+
+    verify_build -> check_build
+    check_build -> verify_test_server [condition="outcome=success"]
+    check_build -> implement_server [condition="outcome=fail && context.failure_class=transient_infra", loop_restart=true]
+    check_build -> postmortem [condition="outcome=fail && context.failure_class!=transient_infra"]
+    check_build -> postmortem
+
+    verify_test_server -> check_test_server
+    check_test_server -> verify_fidelity_server [condition="outcome=success"]
+    check_test_server -> implement_server [condition="outcome=fail && context.failure_class=transient_infra", loop_restart=true]
+    check_test_server -> postmortem [condition="outcome=fail && context.failure_class!=transient_infra"]
+    check_test_server -> postmortem
+
+    verify_fidelity_server -> check_server_fidelity
+    check_server_fidelity -> implement_skill [condition="outcome=success"]
+    check_server_fidelity -> implement_server [condition="outcome=fail && context.failure_class=transient_infra", loop_restart=true]
+    check_server_fidelity -> postmortem [condition="outcome=fail && context.failure_class!=transient_infra"]
+    check_server_fidelity -> postmortem
+
+    // =========================================================================
+    // Flow: Skill Implementation -> Skill Verification
+    // =========================================================================
+
+    implement_skill -> verify_skill_structure
+
+    verify_skill_structure -> check_skill_structure
+    check_skill_structure -> verify_skill_e2e [condition="outcome=success"]
+    check_skill_structure -> implement_skill [condition="outcome=fail && context.failure_class=transient_infra", loop_restart=true]
+    check_skill_structure -> postmortem [condition="outcome=fail && context.failure_class!=transient_infra"]
+    check_skill_structure -> postmortem
+
+    verify_skill_e2e -> check_skill_e2e
+    check_skill_e2e -> verify_fidelity_skill [condition="outcome=success"]
+    check_skill_e2e -> implement_skill [condition="outcome=fail && context.failure_class=transient_infra", loop_restart=true]
+    check_skill_e2e -> postmortem [condition="outcome=fail && context.failure_class!=transient_infra"]
+    check_skill_e2e -> postmortem
+
+    verify_fidelity_skill -> check_skill_fidelity
+    check_skill_fidelity -> review_fanout [condition="outcome=success"]
+    check_skill_fidelity -> implement_skill [condition="outcome=fail && context.failure_class=transient_infra", loop_restart=true]
+    check_skill_fidelity -> postmortem [condition="outcome=fail && context.failure_class!=transient_infra"]
+    check_skill_fidelity -> postmortem
+
+    // =========================================================================
+    // Flow: Review
+    // =========================================================================
+
+    review_fanout -> review_a
+    review_fanout -> review_b
+    review_fanout -> review_c
+    review_a -> review_consensus
+    review_b -> review_consensus
+    review_c -> review_consensus
+
+    review_consensus -> exit [condition="outcome=success"]
+    review_consensus -> postmortem
+
+    // =========================================================================
+    // Flow: Postmortem recovery routing
+    // =========================================================================
+
+    // At least 3 condition edges + unconditional fallback last
+    postmortem -> check_toolchain [condition="outcome=needs_toolchain"]
+    postmortem -> repair_server [condition="outcome=impl_repair_server"]
+    postmortem -> repair_skill [condition="outcome=impl_repair_skill"]
+    postmortem -> repair_server [condition="outcome=impl_repair_both"]
+    postmortem -> plan_work [condition="outcome=needs_replan"]
+    postmortem -> repair_server
+
+    // Repair -> re-verify
+    repair_server -> verify_fmt
+    repair_skill -> verify_skill_structure
+}
