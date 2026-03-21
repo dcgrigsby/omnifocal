@@ -11,12 +11,12 @@ cxdb:
   http_base_url: http://127.0.0.1:9010
   autostart:
     enabled: true
-    command: ["/Users/dan/kilroy/scripts/start-cxdb.sh"]
+    command: ["/Users/dan/omnifocal/start-cxdb-server.sh"]
     wait_timeout_ms: 20000
     poll_interval_ms: 250
     ui:
       enabled: true
-      command: ["/Users/dan/kilroy/scripts/start-cxdb-ui.sh"]
+      command: ["/Users/dan/omnifocal/start-cxdb-ui.sh"]
       url: "http://127.0.0.1:9020"
 
 llm:
