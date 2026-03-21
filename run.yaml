@@ -17,7 +17,7 @@ cxdb:
     ui:
       enabled: true
       command: ["/Users/dan/omnifocal/start-cxdb-ui.sh"]
-      url: "http://127.0.0.1:9020"
+      url: "http://127.0.0.1:3000"
 
 llm:
   cli_profile: real

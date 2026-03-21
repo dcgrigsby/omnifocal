@@ -233,7 +233,7 @@ cxdb:
     ui:
       enabled: true
       command: ["<kilroy-path>/scripts/start-cxdb-ui.sh"]
-      url: "http://127.0.0.1:9020"
+      url: "http://127.0.0.1:3000"
 ```
 
 Resolve `<kilroy-path>` to the actual Kilroy installation path on this machine.
