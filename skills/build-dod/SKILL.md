@@ -114,6 +114,7 @@ Example manifest shape:
 
 Artifact requirements:
 - Every `IT-*` scenario must produce at least one artifact.
+- **Evidence content assertions (required):** Each scenario must specify what the evidence artifact should *contain*, not just that it exists. For example: "IT-2/response.txt must contain parseable JSON with at least one key from the target system" or "IT-3/screenshot.png must show the login form with error message visible." Empty files, placeholder text like "ok" or "pass", and zero-byte artifacts are never valid evidence. The test script must verify evidence content as part of its self-verification block before exiting successfully.
 - Each scenario must declare one surface type in evidence metadata:
   - `surface=ui`: visually rendered user interface is exercised.
   - `surface=non_ui`: no visually rendered user interface is exercised.
@@ -134,6 +135,7 @@ Before finalizing each scenario, confirm:
 - **Independent** — the scenario produces the same result regardless of execution order or environment state
 - **Intent-complete** — collectively, scenarios prove the intended user journeys and outcomes described by the spec (and digraph, if present)
 - **Evidence-complete** — scenario defines deterministic artifact paths and required artifact types under `.ai/runs/$KILROY_RUN_ID/test-evidence/latest/IT-<id>/`
+- **Self-verifying** — the test script must verify its own evidence at the end: manifest exists, all scenario IDs present, evidence files are non-empty and contain expected content. A script that exits 0 without producing real evidence is a false positive.
 
 ## The Crosscheck
 
