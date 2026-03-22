@@ -93,3 +93,9 @@ launchctl load ~/Library/LaunchAgents/com.omnifocal.server.plist
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
+
+---
+
+## How this was made
+
+This project was designed and built almost entirely by AI agents. The architecture was brainstormed collaboratively with [Claude](https://claude.ai), the implementation was produced by a [Kilroy](https://github.com/danshapiro/kilroy) Attractor pipeline using Claude Opus, GPT-5.3 Codex, and GPT-5.4, and the verification was performed by adversarial AI reviewers. A human provided direction, made design decisions, and caught the problems the factory missed. The full build story — including 6 failed runs before success — is a case study in AI-driven software factories and what it takes to make them work reliably.
