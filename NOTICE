@@ -1,0 +1,24 @@
+OmniFocal
+Copyright 2026 Dan Shapiro
+
+CRITICAL SAFETY WARNING — PLEASE READ BEFORE USE
+
+This software executes arbitrary JavaScript code against OmniFocus with
+full read/write privileges. There is NO sandboxing, NO authentication,
+and NO input validation. Any client that can reach the server's network
+port can execute arbitrary code against your OmniFocus database.
+
+Potential consequences of misuse include but are not limited to:
+- Permanent deletion of tasks, projects, folders, and tags
+- Corruption or modification of OmniFocus data
+- Unintended bulk operations with no undo capability
+- Data exfiltration if the server is exposed to untrusted networks
+
+By using this software, you acknowledge that:
+1. You understand the risks described above
+2. You accept full responsibility for any data loss or damage
+3. The authors and contributors provide NO WARRANTY of any kind
+4. The authors and contributors accept NO LIABILITY for any damages
+
+This notice must be preserved in all copies or substantial portions
+of the software, per the Apache License, Version 2.0.

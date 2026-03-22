@@ -1,20 +1,38 @@
 # OmniFocal
 
-A bridge that connects [NanoClaw](https://github.com/qwibitai/nanoclaw) agents to [OmniFocus](https://www.omnigroup.com/omnifocus) on macOS, enabling read-only access to tasks, projects, folders, tags, and perspectives.
+A bridge that connects [NanoClaw](https://github.com/qwibitai/nanoclaw) agents to [OmniFocus](https://www.omnigroup.com/omnifocus) on macOS via the Omni Automation JavaScript API.
 
 ---
 
-## ⚠️ DANGER
+## ⛔ DANGER — READ BEFORE USE
 
-**This server provides unfiltered access to the OmniFocus JavaScript automation API.** Any JavaScript sent to the `/eval` endpoint is executed directly via `osascript` with full privileges. There is no sandboxing, no query validation, and no write protection at the server level.
+> **By running this software, you acknowledge the risks below and accept full responsibility for any consequences. See [NOTICE](NOTICE) for the complete safety warning.**
 
-This means:
+**This server executes arbitrary JavaScript against OmniFocus with full read/write privileges.** There is:
 
-- **An AI agent (or any HTTP client) can create, modify, and delete tasks, projects, and other OmniFocus data.** The read-only constraint exists only in the NanoClaw skill's instructions, not in the server itself.
-- **Malicious or malformed JavaScript can cause data loss.** There is no undo mechanism at the server level.
-- **The server has no authentication.** Anyone who can reach the port can execute arbitrary OmniFocus JavaScript.
+- **No sandboxing** — JavaScript runs with the same privileges as OmniFocus itself
+- **No authentication** — any client that can reach the port can execute code
+- **No input validation** — the server passes JavaScript directly to `osascript`
+- **No undo** — destructive operations (delete, modify, bulk changes) are permanent
 
-**This software is provided AS-IS, with absolutely no warranty, express or implied.** Use at your own risk. See the [LICENSE](LICENSE) file for full terms.
+### What can go wrong
+
+An AI agent, a misconfigured script, or any network client that can reach port 7890 can:
+
+- **Delete all your tasks, projects, and folders** with a single HTTP request
+- **Modify or corrupt your OmniFocus database** silently and irreversibly
+- **Exfiltrate your entire task history** if the server is exposed beyond localhost
+
+### Your responsibility
+
+- **Never expose this server to untrusted networks.** Bind to `127.0.0.1` or use firewall rules.
+- **Review any AI agent's instructions** before granting it access to the server.
+- **Back up your OmniFocus database** before use.
+- **The `--i-accept-the-risk` flag is required to start the server.** This is intentional.
+
+### No warranty
+
+**THIS SOFTWARE IS PROVIDED "AS-IS" WITHOUT WARRANTY OF ANY KIND.** The authors and contributors accept no liability for data loss, corruption, or any other damages arising from the use of this software. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ---
 
@@ -58,8 +76,8 @@ OmniFocus.app (Omni Automation)
 # Build
 go build -o omnifocal-server ./cmd/omnifocal-server
 
-# Run
-./omnifocal-server
+# Run (the --i-accept-the-risk flag is required)
+./omnifocal-server --i-accept-the-risk
 
 # Test
 curl -X POST http://localhost:7890/eval -d 'JSON.stringify(flattenedTasks.length)'

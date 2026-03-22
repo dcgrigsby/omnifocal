@@ -8,6 +8,7 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/local/bin/omnifocal-server</string>
+		<string>--i-accept-the-risk</string>
 	</array>
 
 	<key>KeepAlive</key>

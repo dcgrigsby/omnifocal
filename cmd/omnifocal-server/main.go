@@ -12,17 +12,48 @@ import (
 )
 
 func main() {
+	log.SetOutput(os.Stderr)
+
+	if !hasAcceptedRisk() {
+		fmt.Fprintln(os.Stderr, `
+========================================================================
+  DANGER: omnifocal-server executes arbitrary JavaScript against
+  OmniFocus with FULL READ/WRITE privileges.
+
+  There is NO sandboxing, NO authentication, and NO input validation.
+  Any client that can reach this server can delete, modify, or
+  exfiltrate your entire OmniFocus database.
+
+  YOU ACCEPT FULL RESPONSIBILITY FOR ANY DATA LOSS OR DAMAGE.
+
+  To start the server, re-run with:
+
+    omnifocal-server --i-accept-the-risk
+
+  See NOTICE and README.md for details.
+========================================================================`)
+		os.Exit(1)
+	}
+
 	addr := serverAddr()
 
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/eval", evalHandler)
 
-	log.SetOutput(os.Stderr)
-	log.Printf("omnifocal-server listening on %s", addr)
+	log.Printf("omnifocal-server listening on %s (risk accepted)", addr)
 
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
+}
+
+func hasAcceptedRisk() bool {
+	for _, arg := range os.Args[1:] {
+		if arg == "--i-accept-the-risk" {
+			return true
+		}
+	}
+	return false
 }
 
 func serverAddr() string {
