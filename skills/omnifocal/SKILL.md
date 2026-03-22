@@ -100,78 +100,22 @@ From the document object:
 | `doc.foldersMatching("search")` | Array of Folders |
 | `doc.tagsMatching("search")` | Array of Tags |
 
-### Task Properties (read-only access)
+## API Reference
 
-| Property call | Type | Description |
-|---------------|------|-------------|
-| `t.name()` | String | Task name |
-| `t.id()` | String | Unique identifier |
-| `t.note()` | String | Note text |
-| `t.completed()` | Boolean | Whether completed |
-| `t.completionDate()` | Date or null | When completed |
-| `t.dueDate()` | Date or null | Due date |
-| `t.deferDate()` | Date or null | Defer date |
-| `t.effectiveDueDate()` | Date or null | Effective due date (inherited) |
-| `t.effectiveDeferDate()` | Date or null | Effective defer date (inherited) |
-| `t.flagged()` | Boolean | Whether flagged |
-| `t.effectiveFlagged()` | Boolean | Effective flag (inherited) |
-| `t.taskStatus()` | Task.Status | Status enum value |
-| `t.tags()` | TagArray | Assigned tags |
-| `t.containingProject()` | Project or null | Parent project |
-| `t.parent()` | Task or null | Parent task |
-| `t.children()` | TaskArray | Child tasks |
-| `t.inInbox()` | Boolean | Whether in inbox |
-| `t.estimatedMinutes()` | Number or null | Time estimate |
-| `t.sequential()` | Boolean | Whether sequential |
+The OmniFocus API reference is split into focused files for progressive discovery:
 
-### Task.Status Values
+1. **Start here**: Read `docs/omnifocus-api/CHEATSHEET.md` for a compact overview of all classes, properties, and methods
+2. **Deep dive**: For detailed documentation on a specific class, read the individual reference file:
+   - `docs/omnifocus-api/Task.md` — Task properties, methods, status values, notifications
+   - `docs/omnifocus-api/Project.md` — Project properties, status, review scheduling
+   - `docs/omnifocus-api/Folder.md` — Folder hierarchy and properties
+   - `docs/omnifocus-api/Tag.md` — Tag properties and task filtering
+   - `docs/omnifocus-api/Perspective.md` — Built-in and custom perspectives
+   - `docs/omnifocus-api/Forecast.md` — Forecast days and badge counts
+   - `docs/omnifocus-api/Database.md` — Core architecture, globals, and database methods
+   - `docs/omnifocus-api/DateAndTime.md` — Date manipulation and formatters
 
-`Available`, `Blocked`, `Completed`, `Dropped`, `DueSoon`, `Next`, `Overdue`
-
-### Project Properties (read-only access)
-
-| Property call | Type | Description |
-|---------------|------|-------------|
-| `p.name()` | String | Project name |
-| `p.id()` | String | Unique identifier |
-| `p.status()` | Project.Status | Project status |
-| `p.tasks()` | TaskArray | Direct child tasks |
-| `p.flattenedTasks()` | TaskArray | All tasks in project |
-| `p.completed()` | Boolean | Whether completed |
-| `p.dueDate()` | Date or null | Due date |
-| `p.deferDate()` | Date or null | Defer date |
-| `p.note()` | String | Note text |
-| `p.parentFolder()` | Folder or null | Containing folder |
-| `p.nextTask()` | Task or null | Next available task |
-| `p.flagged()` | Boolean | Whether flagged |
-
-### Project.Status Values
-
-`Active`, `Done`, `Dropped`, `OnHold`
-
-### Folder Properties (read-only access)
-
-| Property call | Type |
-|---------------|------|
-| `f.name()` | String |
-| `f.id()` | String |
-| `f.projects()` | ProjectArray |
-| `f.flattenedProjects()` | ProjectArray |
-| `f.folders()` | FolderArray |
-| `f.flattenedFolders()` | FolderArray |
-| `f.parent()` | Folder or null |
-
-### Tag Properties (read-only access)
-
-| Property call | Type |
-|---------------|------|
-| `tg.name()` | String |
-| `tg.id()` | String |
-| `tg.tasks()` | TaskArray |
-| `tg.availableTasks()` | TaskArray |
-| `tg.remainingTasks()` | TaskArray |
-| `tg.children()` | TagArray |
-| `tg.parent()` | Tag or null |
+Always read the CHEATSHEET first. Only load individual class files when you need details beyond what the cheatsheet provides.
 
 ## Query Patterns — Concrete Examples
 
