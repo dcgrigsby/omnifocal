@@ -10,3 +10,7 @@ omnifocal-server
 
 # OS
 .DS_Store
+
+# Kilroy run artifacts
+.ai/
+.kilroy-inputs/
