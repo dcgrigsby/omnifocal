@@ -72,7 +72,13 @@ func evalHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func runOsaScript(script string) (string, string, error) {
-	cmd := exec.Command("/usr/bin/osascript", "-l", "JavaScript", "-e", script)
+	// Use AppleScript to invoke OmniFocus's built-in Omni Automation JS engine.
+	// This gives us the full Omni Automation API (inbox, flattenedTasks, etc.)
+	// rather than JXA's different Application("OmniFocus") bridge.
+	escaped := strings.ReplaceAll(script, "\\", "\\\\")
+	escaped = strings.ReplaceAll(escaped, "\"", "\\\"")
+	appleScript := fmt.Sprintf(`tell application "OmniFocus" to evaluate javascript "%s"`, escaped)
+	cmd := exec.Command("/usr/bin/osascript", "-e", appleScript)
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf

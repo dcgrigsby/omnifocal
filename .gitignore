@@ -2,8 +2,8 @@
 .env.local
 .env
 
-# Go
-omnifocal-server
+# Go binary
+/omnifocal-server
 
 # Kilroy
 .ai/
