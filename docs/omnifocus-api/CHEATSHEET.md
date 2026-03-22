@@ -1,6 +1,6 @@
 # OmniFocus Omni Automation API — Cheatsheet
 
-> Compact reference for all classes, read-only properties, and relationships.
+> Compact reference for all classes, properties (read-only and read-write), and relationships.
 > For full details on any class, see the individual reference files in this directory.
 > Source: [omni-automation.com/omnifocus/OF-API.html](https://omni-automation.com/omnifocus/OF-API.html)
 
@@ -47,96 +47,120 @@ tagsMatching(search: String)      // Array<Tag>
 | `projects` | `ProjectArray` |
 | `tags` | `Tags` |
 
-## Task : ActiveObject (read-only properties)
+## Task : ActiveObject
 
-| Property | Type |
-|----------|------|
-| `children` | `TaskArray` |
-| `completed` | `Boolean` |
-| `completionDate` | `Date \| null` |
-| `containingProject` | `Project \| null` |
-| `effectiveCompletedDate` | `Date \| null` |
-| `effectiveDeferDate` | `Date \| null` |
-| `effectiveDropDate` | `Date \| null` |
-| `effectiveDueDate` | `Date \| null` |
-| `effectiveFlagged` | `Boolean` |
-| `flattenedChildren` | `TaskArray` |
-| `flattenedTasks` | `TaskArray` |
-| `hasChildren` | `Boolean` |
-| `inInbox` | `Boolean` |
-| `linkedFileURLs` | `Array<URL>` |
-| `notifications` | `Array<Task.Notification>` |
-| `parent` | `Task \| null` |
-| `project` | `Project \| null` |
-| `tags` | `TagArray` |
-| `taskStatus` | `Task.Status` |
-| `tasks` | `TaskArray` |
+| Property | Type | Access |
+|----------|------|--------|
+| `children` | `TaskArray` | read-only |
+| `completed` | `Boolean` | read-only |
+| `completionDate` | `Date \| null` | **read-write** |
+| `containingProject` | `Project \| null` | read-only |
+| `deferDate` | `Date \| null` | **read-write** |
+| `dueDate` | `Date \| null` | **read-write** |
+| `effectiveCompletedDate` | `Date \| null` | read-only |
+| `effectiveDeferDate` | `Date \| null` | read-only |
+| `effectiveDropDate` | `Date \| null` | read-only |
+| `effectiveDueDate` | `Date \| null` | read-only |
+| `effectiveFlagged` | `Boolean` | read-only |
+| `estimatedMinutes` | `Number \| null` | **read-write** |
+| `flagged` | `Boolean` | **read-write** |
+| `flattenedChildren` | `TaskArray` | read-only |
+| `flattenedTasks` | `TaskArray` | read-only |
+| `hasChildren` | `Boolean` | read-only |
+| `inInbox` | `Boolean` | read-only |
+| `linkedFileURLs` | `Array<URL>` | read-only |
+| `name` | `String` | **read-write** |
+| `note` | `String` | **read-write** |
+| `notifications` | `Array<Task.Notification>` | read-only |
+| `parent` | `Task \| null` | read-only |
+| `project` | `Project \| null` | read-only |
+| `sequential` | `Boolean` | **read-write** |
+| `tags` | `TagArray` | read-only |
+| `taskStatus` | `Task.Status` | read-only |
+| `tasks` | `TaskArray` | read-only |
+
+**Mutating methods**: `markComplete()`, `markIncomplete()`, `drop(flag)`, `addTag(tag)`, `removeTag(tag)`, `clearTags()`, `appendStringToNote(string)`, `addLinkedFileURL(url)`, `removeLinkedFileURL(url)`, `save()`
+
+**Constructors**: `new Task(name, position)` — create in inbox; `new Task(name, project)` — create in project
 
 **Task.Status**: `Available`, `Blocked`, `Completed`, `Dropped`, `DueSoon`, `Next`, `Overdue`
 
-Read-write (for reference): `deferDate`, `dueDate`, `estimatedMinutes`, `flagged`, `name`, `note`, `sequential`
+## Project : DatabaseObject
 
-## Project : DatabaseObject (read-only properties)
+| Property | Type | Access |
+|----------|------|--------|
+| `children` | `TaskArray` | read-only |
+| `completed` | `Boolean` | read-only |
+| `completionDate` | `Date \| null` | **read-write** |
+| `deferDate` | `Date \| null` | **read-write** |
+| `dueDate` | `Date \| null` | **read-write** |
+| `effectiveCompletedDate` | `Date \| null` | read-only |
+| `effectiveDeferDate` | `Date \| null` | read-only |
+| `effectiveDropDate` | `Date \| null` | read-only |
+| `effectiveDueDate` | `Date \| null` | read-only |
+| `effectiveFlagged` | `Boolean` | read-only |
+| `estimatedMinutes` | `Number \| null` | **read-write** |
+| `flagged` | `Boolean` | **read-write** |
+| `flattenedChildren` | `TaskArray` | read-only |
+| `flattenedTasks` | `TaskArray` | read-only |
+| `hasChildren` | `Boolean` | read-only |
+| `name` | `String` | **read-write** |
+| `nextReviewDate` | `Date \| null` | read-only |
+| `nextTask` | `Task \| null` | read-only |
+| `note` | `String` | **read-write** |
+| `notifications` | `Array<Task.Notification>` | read-only |
+| `parentFolder` | `Folder \| null` | read-only |
+| `sequential` | `Boolean` | **read-write** |
+| `status` | `Project.Status` | **read-write** |
+| `tags` | `TagArray` | read-only |
+| `task` | `Task` | read-only |
+| `taskStatus` | `Task.Status` | read-only |
+| `tasks` | `TaskArray` | read-only |
 
-| Property | Type |
-|----------|------|
-| `children` | `TaskArray` |
-| `completed` | `Boolean` |
-| `effectiveCompletedDate` | `Date \| null` |
-| `effectiveDeferDate` | `Date \| null` |
-| `effectiveDropDate` | `Date \| null` |
-| `effectiveDueDate` | `Date \| null` |
-| `effectiveFlagged` | `Boolean` |
-| `flattenedChildren` | `TaskArray` |
-| `flattenedTasks` | `TaskArray` |
-| `hasChildren` | `Boolean` |
-| `nextReviewDate` | `Date \| null` |
-| `nextTask` | `Task \| null` |
-| `notifications` | `Array<Task.Notification>` |
-| `parentFolder` | `Folder \| null` |
-| `tags` | `TagArray` |
-| `task` | `Task` |
-| `taskStatus` | `Task.Status` |
-| `tasks` | `TaskArray` |
+**Mutating methods**: `markComplete()`, `markIncomplete()`, `addTag(tag)`, `removeTag(tag)`, `save()`
+
+**Constructors**: `new Project(name)`, `new Project(name, folder)`
 
 **Project.Status**: `Active`, `Done`, `Dropped`, `OnHold`
 
-Read-write (for reference): `completionDate`, `deferDate`, `dueDate`, `estimatedMinutes`, `flagged`, `name`, `note`, `sequential`, `status`
+## Folder : ActiveObject
 
-## Folder : ActiveObject (read-only properties)
+| Property | Type | Access |
+|----------|------|--------|
+| `children` | `SectionArray` | read-only |
+| `flattenedChildren` | `SectionArray` | read-only |
+| `flattenedFolders` | `FolderArray` | read-only |
+| `flattenedProjects` | `ProjectArray` | read-only |
+| `flattenedSections` | `SectionArray` | read-only |
+| `folders` | `FolderArray` | read-only |
+| `name` | `String` | **read-write** |
+| `parent` | `Folder \| null` | read-only |
+| `projects` | `ProjectArray` | read-only |
+| `sections` | `SectionArray` | read-only |
+| `status` | `Folder.Status` | **read-write** |
 
-| Property | Type |
-|----------|------|
-| `children` | `SectionArray` |
-| `flattenedChildren` | `SectionArray` |
-| `flattenedFolders` | `FolderArray` |
-| `flattenedProjects` | `ProjectArray` |
-| `flattenedSections` | `SectionArray` |
-| `folders` | `FolderArray` |
-| `parent` | `Folder \| null` |
-| `projects` | `ProjectArray` |
-| `sections` | `SectionArray` |
-
-Read-write (for reference): `name`, `status`
+**Constructors**: `new Folder(name)`, `new Folder(name, parentFolder)`
 
 **Folder.Status**: `Active`, `Dropped`
 
-## Tag : ActiveObject (read-only properties)
+## Tag : ActiveObject
 
-| Property | Type |
-|----------|------|
-| `allowsNextAction` | `Boolean` |
-| `availableTasks` | `TaskArray` |
-| `children` | `TagArray` |
-| `flattenedChildren` | `TagArray` |
-| `flattenedTags` | `TagArray` |
-| `parent` | `Tag \| null` |
-| `projects` | `ProjectArray` |
-| `remainingTasks` | `TaskArray` |
-| `tags` | `TagArray` |
-| `tasks` | `TaskArray` |
+| Property | Type | Access |
+|----------|------|--------|
+| `allowsNextAction` | `Boolean` | read-only |
+| `availableTasks` | `TaskArray` | read-only |
+| `children` | `TagArray` | read-only |
+| `flattenedChildren` | `TagArray` | read-only |
+| `flattenedTags` | `TagArray` | read-only |
+| `name` | `String` | **read-write** |
+| `parent` | `Tag \| null` | read-only |
+| `projects` | `ProjectArray` | read-only |
+| `remainingTasks` | `TaskArray` | read-only |
+| `status` | `Tag.Status` | **read-write** |
+| `tags` | `TagArray` | read-only |
+| `tasks` | `TaskArray` | read-only |
 
-Read-write (for reference): `name`, `status`
+**Constructors**: `new Tag(name)`, `new Tag(name, parentTag)`
 
 **Tag.Status**: `Active`, `Dropped`, `OnHold`
 

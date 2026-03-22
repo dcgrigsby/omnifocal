@@ -1,11 +1,11 @@
 ---
 name: omnifocal
-description: Query OmniFocus data via the omnifocal-server. Compose read-only OmniFocus JavaScript queries using the Omni Automation API and execute them through the server's POST /eval endpoint. Use this skill whenever the user asks about their tasks, projects, folders, tags, or anything stored in OmniFocus.
+description: Interact with OmniFocus via the omnifocal-server. Compose OmniFocus JavaScript queries and commands using the Omni Automation API and execute them through the server's POST /eval endpoint. Use this skill whenever the user asks about their tasks, projects, folders, tags, or wants to create, modify, or complete items in OmniFocus.
 ---
 
-# OmniFocal — Read-Only OmniFocus Access
+# OmniFocal — OmniFocus Access
 
-This skill lets you query OmniFocus on the user's Mac by composing JavaScript (Omni Automation) and sending it to the omnifocal-server.
+This skill lets you read and write OmniFocus data on the user's Mac by composing JavaScript (Omni Automation) and sending it to the omnifocal-server.
 
 ## How It Works
 
@@ -37,19 +37,24 @@ The server returns:
 
 Always check the server is healthy before running queries. If you get a connection error, the server may not be running.
 
-## Read-Only Constraint — CRITICAL
+## Write Operations
 
-**You MUST only compose read-only queries. Never modify OmniFocus data.**
+You can create, modify, and complete OmniFocus items. When performing write operations:
 
-Prohibited actions — never do any of these:
-- Never assign properties — do not write to `.name`, `.flagged`, `.dueDate`, or any other settable property
-- Never call mutating methods — no `markComplete`, `markIncomplete`, `drop`, `addTag`, `removeTag`, `clearTags`, `appendStringToNote`
-- Never persist changes — do not call the database `save` method
-- Never construct new objects — do not instantiate Task, Project, Folder, or Tag constructors
-- Never call `moveTasks`, `duplicateTasks`, `deleteObject`, `moveSections`, `duplicateSections`, `moveTags`, `duplicateTags`
-- Never call `undo` or `redo`
+- **Always confirm destructive actions with the user** before deleting tasks, projects, or folders
+- **Use `save()` sparingly** — OmniFocus auto-saves, but call `doc.save()` after batch modifications to ensure persistence
+- Property writes use assignment syntax: `task.name = "new name"` (not method-call syntax)
+- Property reads use method-call syntax: `task.name()` (not assignment syntax)
 
-**Only use read accessors**: property getters (`.name()`, `.id()`, `.tasks()`, etc.) and collection accessors (`flattenedTasks`, `flattenedProjects`, etc.).
+### Available Write Operations
+
+**Task**: set `name`, `note`, `dueDate`, `deferDate`, `flagged`, `estimatedMinutes`, `sequential`, `completionDate`; call `markComplete()`, `markIncomplete()`, `drop(flag)`, `addTag(tag)`, `removeTag(tag)`, `clearTags()`, `appendStringToNote(string)`; create with `new Task(name, position)`
+
+**Project**: set `name`, `note`, `dueDate`, `deferDate`, `flagged`, `estimatedMinutes`, `sequential`, `status`, `completionDate`; call `markComplete()`, `markIncomplete()`, `addTag(tag)`, `removeTag(tag)`; create with `new Project(name)` or `new Project(name, folder)`
+
+**Folder**: set `name`, `status`; create with `new Folder(name)` or `new Folder(name, parentFolder)`
+
+**Tag**: set `name`, `status`; create with `new Tag(name)` or `new Tag(name, parentTag)`
 
 ## Writing Queries
 
@@ -177,6 +182,42 @@ curl -s -X POST -d 'var doc = Application("OmniFocus").defaultDocument; var fold
 
 ```bash
 curl -s -X POST -d 'var doc = Application("OmniFocus").defaultDocument; var all = doc.flattenedTasks(); var dueSoon = all.filter(function(t) { return t.taskStatus() === Task.Status.DueSoon; }); JSON.stringify(dueSoon.map(function(t) { return {name: t.name(), due: t.effectiveDueDate() ? t.effectiveDueDate().toISOString() : null}; }))' http://localhost:7890/eval
+```
+
+### Create a New Task in Inbox
+
+```bash
+curl -s -X POST -d 'var doc = Application("OmniFocus").defaultDocument; var t = new Task("Buy groceries", doc.inbox.beginning); JSON.stringify({name: t.name(), id: t.id()})' http://localhost:7890/eval
+```
+
+### Create a Task in a Specific Project
+
+```bash
+curl -s -X POST -d 'var doc = Application("OmniFocus").defaultDocument; var proj = doc.projectNamed("My Project"); var t = new Task("Write report", proj); JSON.stringify({name: t.name(), id: t.id(), project: t.containingProject().name()})' http://localhost:7890/eval
+```
+
+### Mark a Task Complete
+
+```bash
+curl -s -X POST -d 'var doc = Application("OmniFocus").defaultDocument; var t = doc.taskNamed("Buy groceries"); if (t) { t.markComplete(); JSON.stringify({name: t.name(), completed: t.completed()}); } else { JSON.stringify({error: "task not found"}); }' http://localhost:7890/eval
+```
+
+### Set Due Date on a Task
+
+```bash
+curl -s -X POST -d 'var doc = Application("OmniFocus").defaultDocument; var t = doc.taskNamed("Write report"); if (t) { t.dueDate = new Date("2026-04-01T17:00:00"); JSON.stringify({name: t.name(), due: t.dueDate().toISOString()}); } else { JSON.stringify({error: "task not found"}); }' http://localhost:7890/eval
+```
+
+### Add a Tag to a Task
+
+```bash
+curl -s -X POST -d 'var doc = Application("OmniFocus").defaultDocument; var t = doc.taskNamed("Write report"); var tag = doc.tagNamed("urgent"); if (t && tag) { t.addTag(tag); JSON.stringify({name: t.name(), tags: t.tags().map(function(tg) { return tg.name(); })}); } else { JSON.stringify({error: "task or tag not found"}); }' http://localhost:7890/eval
+```
+
+### Create a New Project
+
+```bash
+curl -s -X POST -d 'var doc = Application("OmniFocus").defaultDocument; var p = new Project("Q2 Planning"); JSON.stringify({name: p.name(), id: p.id()})' http://localhost:7890/eval
 ```
 
 ## Tips
