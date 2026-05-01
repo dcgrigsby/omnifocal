@@ -7,7 +7,7 @@
 
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/local/bin/omnifocal-server</string>
+		<string>/Users/dan/omnifocal/omnifocal-server</string>
 		<string>--i-accept-the-risk</string>
 	</array>
 
